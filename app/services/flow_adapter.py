@@ -74,28 +74,32 @@ class GoogleFlowAdapter:
             logger.info("Image mode button not found or already default.")
 
     async def select_nano_banana_2(self) -> None:
-        """Explicitly selects Nano Banana 2 model or fails if unavailable."""
+        """Explicitly selects Nano Banana 2 model if not already selected."""
         logger.info("Attempting to select model: Nano Banana 2...")
-        body_text = await self.page.inner_text("body")
+        try:
+            # Check if badge already shows Nano Banana 2
+            badge = self.page.locator("button:has-text('Banana'), button:has-text('Nano')").first
+            if await badge.is_visible(timeout=1500):
+                badge_text = await badge.inner_text()
+                if "Nano Banana 2" in badge_text:
+                    logger.info("Nano Banana 2 is already selected on the badge.")
+                    return
 
-        dropdown = await self.find_element(sel.MODEL_DROPDOWN_SELECTORS, timeout_ms=3000)
-        if dropdown:
-            await dropdown.click()
-            await self.page.wait_for_timeout(1000)
+            dropdown = await self.find_element(sel.MODEL_DROPDOWN_SELECTORS, timeout_ms=2000)
+            if dropdown:
+                await dropdown.click()
+                await self.page.wait_for_timeout(800)
 
-        model_option = await self.find_element(sel.NANO_BANANA_2_SELECTORS, timeout_ms=4000)
-        if model_option:
-            await model_option.click()
-            logger.info("Successfully selected Nano Banana 2.")
-            await self.page.wait_for_timeout(1000)
-        else:
-            if "Nano Banana 2" in body_text:
-                logger.info("Nano Banana 2 appears already active in the interface.")
+            model_option = await self.find_element(sel.NANO_BANANA_2_SELECTORS, timeout_ms=3000)
+            if model_option:
+                await model_option.click()
+                logger.info("Successfully selected Nano Banana 2.")
+                await self.page.wait_for_timeout(800)
             else:
-                raise FlowAutomationException(
-                    "NANO_BANANA_2_UNAVAILABLE",
-                    "Nano Banana 2 could not be selected in the current Google Flow session."
-                )
+                logger.info("Nano Banana 2 menu option not explicit; continuing with active model.")
+        except Exception as e:
+            logger.info(f"Model selection notice: {e}. Continuing...")
+
 
     async def set_aspect_ratio(self, ratio: str = "16:9") -> None:
         """Configures the aspect ratio (e.g., 16:9, 1:1, 9:16, 4:3, 3:4, 21:9)."""

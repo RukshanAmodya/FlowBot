@@ -24,10 +24,13 @@ async def main(prompt: str = None, ref_img_path: str = None):
     
     # Check if a test reference image exists in generated folders
     if not ref_img_path:
-        test_images = list(Path("generated").glob("**/*.png"))
+        test_images = list(PROJECT_ROOT.glob("generated/**/*.png"))
         if test_images:
-            ref_img_path = str(test_images[0])
+            ref_img_path = str(test_images[0].resolve())
             print(f"[INFO] Using test reference image: {ref_img_path}")
+        else:
+            print("[INFO] No test reference image found in generated folder.")
+
 
     async with async_playwright() as p:
         # Launch visible browser with delay so you can watch everything step by step
