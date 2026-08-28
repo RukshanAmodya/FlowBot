@@ -14,8 +14,9 @@ from app.models import (
 )
 from app.services.session_manager import session_manager
 from app.services.flow_browser import GoogleFlowBrowser
-from app.services.flow_adapter import FlowAutomationException
+from app.services.flow_adapter import GoogleFlowAdapter, FlowAutomationException
 from app.utils.logger import logger
+
 from app.utils.files import create_zip_archive
 
 router = APIRouter()
