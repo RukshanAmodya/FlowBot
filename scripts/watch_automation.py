@@ -22,14 +22,16 @@ async def main(prompt: str = None, ref_img_path: str = None):
     if not prompt:
         prompt = "A cinematic cute fluffy puppy in a magical sunflower garden, 8k"
     
-    # Check if a test reference image exists in generated folders
+    # Ensure a test reference image always exists
     if not ref_img_path:
-        test_images = list(PROJECT_ROOT.glob("generated/**/*.png"))
-        if test_images:
-            ref_img_path = str(test_images[0].resolve())
-            print(f"[INFO] Using test reference image: {ref_img_path}")
-        else:
-            print("[INFO] No test reference image found in generated folder.")
+        sample_img = PROJECT_ROOT / "sample_reference.png"
+        if not sample_img.exists():
+            from PIL import Image
+            img = Image.new('RGB', (512, 512), color=(73, 109, 137))
+            img.save(str(sample_img))
+        ref_img_path = str(sample_img.resolve())
+        print(f"[INFO] Using test reference image: {ref_img_path}")
+
 
 
     async with async_playwright() as p:
