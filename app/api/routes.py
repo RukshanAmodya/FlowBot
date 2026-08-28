@@ -46,6 +46,20 @@ async def get_status():
         adapter = GoogleFlowAdapter(session_manager._page)
         is_auth = await adapter.check_authenticated()
         user_email = await adapter.get_logged_in_email()
+    else:
+        # Check Preferences file directly
+        try:
+            import json
+            pref_file = settings.profile_path / "Default" / "Preferences"
+            if pref_file.exists():
+                data = json.loads(pref_file.read_text(encoding="utf-8", errors="ignore"))
+                accounts = data.get("account_info", [])
+                if accounts and isinstance(accounts, list):
+                    user_email = accounts[0].get("email")
+                    if user_email:
+                        is_auth = True
+        except Exception:
+            pass
 
     is_locked = session_manager.lock.locked()
     
@@ -57,6 +71,7 @@ async def get_status():
         busy=is_locked,
         current_generation_id=session_manager.current_generation_id
     )
+
 
 
 @router.post(

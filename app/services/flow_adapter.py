@@ -54,30 +54,35 @@ class GoogleFlowAdapter:
             return True
 
     async def get_logged_in_email(self) -> Optional[str]:
-
-        """Extracts the active Google Account email or profile identifier."""
+        """Extracts the active Google Account email from DOM or profile Preferences."""
         try:
-            # Check for Google Account button tooltip/aria-label (e.g. 'Google Account: user@gmail.com')
+            # 1. Check live DOM for Google Account button tooltip/aria-label
             account_btn = self.page.locator("a[aria-label*='Google Account'], button[aria-label*='Google Account'], [aria-label*='@']").first
-            if await account_btn.is_visible(timeout=1500):
+            if await account_btn.is_visible(timeout=1000):
                 aria = await account_btn.get_attribute("aria-label") or ""
                 if "@" in aria:
-                    # Extract email from string like "Google Account: rukshan@gmail.com"
                     for part in aria.replace(":", " ").replace("\n", " ").split():
                         if "@" in part:
                             return part.strip("()")
-                return aria.replace("Google Account", "").strip(": ")
-            
-            # Check for profile image or badge
-            profile_img = self.page.locator("img[alt*='Google Account'], img[alt*='@']").first
-            if await profile_img.is_visible(timeout=1000):
-                alt = await profile_img.get_attribute("alt") or ""
-                if "@" in alt:
-                    for part in alt.replace(":", " ").split():
-                        if "@" in part:
-                            return part.strip("()")
+                if "Google Account" in aria:
+                    return aria.replace("Google Account", "").strip(": ")
         except Exception:
             pass
+
+        # 2. Extract from Chrome Profile Preferences file
+        try:
+            import json
+            pref_file = settings.profile_path / "Default" / "Preferences"
+            if pref_file.exists():
+                data = json.loads(pref_file.read_text(encoding="utf-8", errors="ignore"))
+                accounts = data.get("account_info", [])
+                if accounts and isinstance(accounts, list):
+                    email = accounts[0].get("email")
+                    if email:
+                        return email
+        except Exception:
+            pass
+
         return None
 
 
