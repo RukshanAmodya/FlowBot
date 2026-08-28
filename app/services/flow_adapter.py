@@ -106,8 +106,16 @@ class GoogleFlowAdapter:
 
 
 
+        # Check if landed on Google Flow promotional landing page with 'Create with Google Flow' button
+        create_flow_btn = self.page.locator("button:has-text('Create with Google Flow')").first
+        if await create_flow_btn.is_visible(timeout=2500):
+            logger.info("Found 'Create with Google Flow' entry button. Entering workspace...")
+            await create_flow_btn.click()
+            await self.page.wait_for_timeout(3000)
+
         new_proj_btn = await self.find_element(sel.NEW_PROJECT_SELECTORS, timeout_ms=3000)
         if new_proj_btn:
+
             logger.info("Found 'New Project' button. Initializing project workspace...")
             await new_proj_btn.click()
             # Wait for project URL transition (e.g. /tools/flow/project/...)
