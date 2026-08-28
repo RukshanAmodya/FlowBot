@@ -53,6 +53,8 @@ class HealthResponse(BaseModel):
 class StatusResponse(BaseModel):
     browser_running: bool
     flow_authenticated: bool
+    user_email: Optional[str] = None
     model: str
     busy: bool
     current_generation_id: Optional[str] = None
+

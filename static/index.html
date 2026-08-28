@@ -100,10 +100,17 @@
           <input type="file" id="syncSessionFileInput" accept=".zip" class="hidden" onchange="uploadSessionZip(this)" />
         </label>
 
+        <!-- Logged-in Google Email Badge -->
+        <div id="userEmailBadge" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
+          <span>👤</span>
+          <span id="userEmailText">Signed in</span>
+        </div>
+
         <div id="statusIndicator" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-dark-800 border border-white/5 text-xs">
           <span id="statusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
           <span id="statusText" class="text-slate-300">Checking...</span>
         </div>
+
         <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-white transition flex items-center space-x-1 px-2.5 py-1.5 rounded-lg hover:bg-white/5">
           <span>Swagger Docs</span>
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
@@ -414,7 +421,16 @@
           const s = await res.json();
           const dot = document.getElementById('statusDot');
           const txt = document.getElementById('statusText');
+          const emailBadge = document.getElementById('userEmailBadge');
+          const emailTxt = document.getElementById('userEmailText');
           
+          if (s.user_email) {
+            emailTxt.innerText = s.user_email;
+            emailBadge.classList.remove('hidden');
+          } else {
+            emailBadge.classList.add('hidden');
+          }
+
           if (s.busy) {
             dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
             txt.innerText = `Busy: Generating (${s.current_generation_id || 'active'})`;
@@ -431,6 +447,7 @@
         document.getElementById('statusText').innerText = "Offline";
       }
     }
+
 
     async function uploadSessionZip(input) {
       if (input.files && input.files[0]) {

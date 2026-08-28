@@ -37,18 +37,27 @@ async def health_check():
 
 @router.get("/status", response_model=StatusResponse)
 async def get_status():
-    """Status endpoint reporting browser and auth state."""
+    """Status endpoint reporting browser, auth state, and logged-in Google email."""
     is_running = await session_manager.is_running()
-    is_auth = await session_manager.check_authenticated() if is_running else False
+    is_auth = False
+    user_email = None
+
+    if is_running and session_manager._page:
+        adapter = GoogleFlowAdapter(session_manager._page)
+        is_auth = await adapter.check_authenticated()
+        user_email = await adapter.get_logged_in_email()
+
     is_locked = session_manager.lock.locked()
     
     return StatusResponse(
         browser_running=is_running,
         flow_authenticated=is_auth,
+        user_email=user_email,
         model="Nano Banana 2",
         busy=is_locked,
         current_generation_id=session_manager.current_generation_id
     )
+
 
 @router.post(
     "/generate",
