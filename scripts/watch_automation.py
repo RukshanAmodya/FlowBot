@@ -22,15 +22,30 @@ async def main(prompt: str = None, ref_img_path: str = None):
     if not prompt:
         prompt = "A cinematic cute fluffy puppy in a magical sunflower garden, 8k"
     
-    # Ensure a test reference image always exists
+    # Allow user to specify image path interactively if not provided
     if not ref_img_path:
-        sample_img = PROJECT_ROOT / "sample_reference.png"
-        if not sample_img.exists():
-            from PIL import Image
-            img = Image.new('RGB', (512, 512), color=(73, 109, 137))
-            img.save(str(sample_img))
-        ref_img_path = str(sample_img.resolve())
-        print(f"[INFO] Using test reference image: {ref_img_path}")
+        user_img_input = input("Enter path to your reference image (e.g. C:\\path\\to\\my_image.png) [or press ENTER to search for images]: ").strip().strip('"')
+        if user_img_input and Path(user_img_input).exists():
+            ref_img_path = str(Path(user_img_input).resolve())
+        else:
+            # Check for any realistic test images in the workspace
+            found_images = list(PROJECT_ROOT.glob("*.jpg")) + list(PROJECT_ROOT.glob("*.png")) + list(PROJECT_ROOT.glob("generated/**/*.png"))
+            # Filter out sample_reference.png if possible
+            real_images = [img for img in found_images if img.name != "sample_reference.png"]
+            if real_images:
+                ref_img_path = str(real_images[0].resolve())
+            elif found_images:
+                ref_img_path = str(found_images[0].resolve())
+            else:
+                sample_img = PROJECT_ROOT / "sample_reference.png"
+                if not sample_img.exists():
+                    from PIL import Image
+                    img = Image.new('RGB', (512, 512), color=(73, 109, 137))
+                    img.save(str(sample_img))
+                ref_img_path = str(sample_img.resolve())
+
+    print(f"[INFO] Using reference image: {ref_img_path}")
+
 
 
 
