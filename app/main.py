@@ -1,13 +1,18 @@
-"""FastAPI application initialization, middleware, and lifecycle management."""
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
+from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.api.routes import router
 from app.services.session_manager import session_manager
 from app.utils.logger import logger
+
+static_dir = Path(__file__).resolve().parent.parent / "static"
+static_dir.mkdir(exist_ok=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,6 +22,7 @@ async def lifespan(app: FastAPI):
     settings.temp_path
     settings.screenshot_path
     settings.log_path
+    settings.output_path.mkdir(parents=True, exist_ok=True)
     yield
     logger.info("Shutting down FlowBot API Server...")
     await session_manager.close()
@@ -46,4 +52,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+@app.get("/", include_in_schema=False)
+async def serve_root_dashboard():
+    """Serves the FlowBot Studio Web UI dashboard."""
+    index_file = static_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {"message": "FlowBot Studio API is running. Visit /docs for documentation."}
+
 app.include_router(router)
+
