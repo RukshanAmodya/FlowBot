@@ -284,38 +284,46 @@ class GoogleFlowAdapter:
 
         logger.info("Locating active prompt input textbox...")
         
-        # Broad list of Slate.js and contenteditable selectors
+        # Specific Slate.js and visible contenteditable selectors (explicitly exclude hidden recaptcha)
         editor_selectors = [
             "div[role='textbox'][data-slate-editor='true']",
             "div[data-slate-editor='true']",
-            "[contenteditable='true']",
-            "div[role='textbox']",
+            "[contenteditable='true']:not([aria-hidden='true'])",
+            "div[role='textbox']:not([aria-hidden='true'])",
             "div.sc-5c3af813-0 [role='textbox']",
             "div.sc-1c9f7009-0",
-            "div[data-slate-node='element']",
-            "p[data-slate-node='element']",
-            "textarea",
-            "input[type='text']"
+            "textarea:not([name*='recaptcha']):not([id*='recaptcha'])",
         ]
 
         prompt_box = None
         for sel_item in editor_selectors:
             try:
-                loc = self.page.locator(sel_item).last
-                if await loc.count() > 0:
-                    prompt_box = loc
+                elements = self.page.locator(sel_item)
+                count = await elements.count()
+                for i in range(count - 1, -1, -1):
+                    cand = elements.nth(i)
+                    if await cand.is_visible(timeout=500):
+                        prompt_box = cand
+                        break
+                if prompt_box:
                     break
             except Exception:
                 continue
 
         if not prompt_box:
-            prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=5000)
+            # Fallback to general visible prompt input selectors
+            prompt_box = await self.find_element([
+                "div[role='textbox'][data-slate-editor='true']",
+                "[contenteditable='true']",
+                "textarea:not([name*='recaptcha'])"
+            ], timeout_ms=5000)
 
         if not prompt_box:
             raise FlowAutomationException(
                 "FLOW_PAGE_LOAD_FAILED",
                 "Could not locate the prompt input field in Google Flow."
             )
+
 
         try:
             await prompt_box.click(timeout=2000)
