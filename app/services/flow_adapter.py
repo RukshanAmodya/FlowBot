@@ -271,30 +271,40 @@ class GoogleFlowAdapter:
             await self.page.goto(self.current_edit_url, wait_until="domcontentloaded")
             await self.page.wait_for_timeout(2000)
 
-        # Ensure that inside the opened image editor view, the model is explicitly set to Nano Banana 2!
-        logger.info("Ensuring model is set to Nano Banana 2 in the opened image view...")
-        await self.select_nano_banana_2()
+        # Ensure that inside the active view, the model is set to Nano Banana 2
+        logger.info("Ensuring model is set to Nano Banana 2...")
+        try:
+            await self.select_nano_banana_2()
+        except Exception:
+            pass
 
-        logger.info("Locating the active image prompt editor ('What do you want to change?' / editor)...")
-        await self.page.wait_for_timeout(500)
+        # Dismiss any open Radix settings dialog before looking for prompt box
+        await self.dismiss_popups()
+        await self.page.wait_for_timeout(400)
 
-        # Extended selectors targeting the opened image view placeholder: 'What do you want to change?'
+        logger.info("Locating active prompt input textbox...")
+        
+        # Extended selectors targeting both standard prompt bar and image edit view
         editor_selectors = [
             "div[role='textbox'][data-slate-editor='true']",
             "div[data-slate-editor='true']",
-            "div:has-text('What do you want to change?') [contenteditable='true']",
+            "div[contenteditable='true']",
             "div.sc-5c3af813-0 [role='textbox']",
             "div.sc-1c9f7009-0",
-            "div[contenteditable='true']",
             "textarea",
+            "[data-testid='prompt-input']",
+            "div[role='textbox']"
         ]
 
         prompt_box = None
         for sel_item in editor_selectors:
-            loc = self.page.locator(sel_item).last
-            if await loc.is_visible(timeout=1500):
-                prompt_box = loc
-                break
+            try:
+                loc = self.page.locator(sel_item).last
+                if await loc.is_visible(timeout=1000):
+                    prompt_box = loc
+                    break
+            except Exception:
+                continue
 
         if not prompt_box:
             prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=4000)
@@ -308,7 +318,7 @@ class GoogleFlowAdapter:
         try:
             await prompt_box.click(timeout=3000)
         except Exception:
-            logger.info("Click intercepted by overlay. Attempting force click & focus...")
+            logger.info("Click intercepted. Attempting force click & focus...")
             await prompt_box.click(force=True)
 
         await prompt_box.focus()
@@ -316,8 +326,9 @@ class GoogleFlowAdapter:
         
         # Type the prompt using keyboard simulation for Slate.js compatibility
         await prompt_box.type(f" {prompt}", delay=15)
-        logger.info(f"Prompt successfully inserted into image edit textbox: '{prompt}'")
+        logger.info(f"Prompt successfully inserted into prompt textbox: '{prompt}'")
         await self.page.wait_for_timeout(600)
+
 
     async def click_generate(self) -> None:
         """Triggers the generation action (arrow button or Enter)."""
