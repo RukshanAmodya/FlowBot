@@ -47,12 +47,27 @@ class FlowGeneratorService:
         return existing
 
     async def wait_for_generation_complete(self, initial_images: set, timeout_seconds: int = 300) -> List[Locator]:
-        """Polls for completion signals and detects the newly generated 4 image elements."""
-        logger.info("Waiting for generation to finish...")
+        """Polls for 0% -> 100% progress and detects when all 4 generated images are fully rendered."""
+        logger.info("Generation in progress. Waiting for progress percentage (0% -> 100%) and all 4 outputs to render...")
         start_time = asyncio.get_event_loop().time()
 
-        await self.page.wait_for_timeout(3000)
+        # Initial wait for generation to spin up
+        await self.page.wait_for_timeout(4000)
 
+        # 1. Track ongoing generation progress percentage (e.g. 15%, 50%, 80%, 100%)
+        for _ in range(90):
+            progress_indicator = self.page.locator("*:has-text('%'), [role='progressbar'], [aria-busy='true']").first
+            if await progress_indicator.is_visible(timeout=800):
+                try:
+                    p_text = await progress_indicator.inner_text()
+                    logger.info(f"Generation progress: {p_text}")
+                except Exception:
+                    pass
+                await asyncio.sleep(2)
+            else:
+                break
+
+        # 2. Wait for newly rendered image elements to appear on the workspace canvas
         while asyncio.get_event_loop().time() - start_time < timeout_seconds:
             await self.adapter.check_quota_or_rate_limit()
             is_busy = await self.adapter.is_generating()
@@ -70,16 +85,19 @@ class FlowGeneratorService:
                     continue
 
             if len(new_elements) >= 4 and not is_busy:
-                logger.info(f"Detected {len(new_elements)} new image assets and generation finished.")
+                logger.info(f"100% Complete! Detected {len(new_elements)} newly rendered images in workspace.")
+                # Give 2 seconds for high-res blob/CDN URLs to settle
+                await self.page.wait_for_timeout(2000)
                 return new_elements[:4]
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
 
         await self.capture_diagnostic_snapshot("timeout")
         raise FlowAutomationException(
             "GENERATION_TIMEOUT",
             f"Generation timed out after {timeout_seconds} seconds."
         )
+
 
     async def execute_generation(
         self,
