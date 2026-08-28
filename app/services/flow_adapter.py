@@ -161,21 +161,26 @@ class GoogleFlowAdapter:
                 await top_plus_btn.click()
                 await self.page.wait_for_timeout(800)
 
-            # 2. Click 'Upload media' from dropdown/dialog menu using expect_file_chooser
-            upload_media_btn = self.page.locator("button:has-text('Upload media'), [role='menuitem']:has-text('Upload media'), div:has-text('Upload media')").first
-            if await upload_media_btn.is_visible(timeout=2500):
-                logger.info("Clicking 'Upload media' and choosing file...")
-                async with self.page.expect_file_chooser(timeout=6000) as fc_info:
-                    await upload_media_btn.click()
-                file_chooser = await fc_info.value
-                await file_chooser.set_files(str(image_path))
-                logger.info(f"Selected file: {image_path.name}")
+            # 2. Upload file via native file input or file chooser safely
+            file_input = self.page.locator("input[type='file']").first
+            if await file_input.count() > 0:
+                logger.info("Directly attaching file to DOM file input...")
+                await file_input.set_input_files(str(image_path))
+                logger.info(f"Attached file: {image_path.name}")
             else:
-                # Fallback directly to native input[type=file]
-                file_input = self.page.locator("input[type='file']").first
-                if await file_input.count() > 0:
-                    await file_input.set_input_files(str(image_path))
-                    logger.info("File uploaded via fallback file input.")
+                upload_media_btn = self.page.locator("button:has-text('Upload media'), [role='menuitem']:has-text('Upload media'), div:has-text('Upload media')").first
+                if await upload_media_btn.is_visible(timeout=2000):
+                    logger.info("Clicking 'Upload media' button...")
+                    try:
+                        async with self.page.expect_file_chooser(timeout=3000) as fc_info:
+                            await upload_media_btn.click()
+                        file_chooser = await fc_info.value
+                        await file_chooser.set_files(str(image_path))
+                        logger.info(f"Selected file via chooser: {image_path.name}")
+                    except Exception:
+                        logger.info("File chooser event bypassed, clicking upload media directly...")
+                        await upload_media_btn.click()
+
 
             # 3. Track upload progress percentage (e.g. 7% -> 100%)
             logger.info("Tracking upload progress until 100% complete...")
