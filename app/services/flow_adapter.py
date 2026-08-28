@@ -43,13 +43,24 @@ class GoogleFlowAdapter:
             return False
 
     async def open_project_or_new(self) -> None:
-        """Ensures an active project/workspace is open for generation."""
-        logger.info("Checking for open project or creating a new one...")
-        new_proj_btn = await self.find_element(sel.NEW_PROJECT_SELECTORS, timeout_ms=4000)
+        """Ensures an active project/workspace is open, reusing existing active project."""
+        logger.info("Checking for active project workspace...")
+        # If the prompt editor or workspace canvas is already visible or URL contains /project/, stay in the same project
+        if "/project/" in self.page.url:
+            logger.info(f"Already in active project workspace: {self.page.url}. Reusing existing project.")
+            return
+
+        prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=2000)
+        if prompt_box and await prompt_box.is_visible():
+            logger.info("Prompt input already available in workspace. Reusing existing project.")
+            return
+
+        new_proj_btn = await self.find_element(sel.NEW_PROJECT_SELECTORS, timeout_ms=3000)
         if new_proj_btn:
-            logger.info("Found 'New Project' button. Clicking to initialize project.")
+            logger.info("Found 'New Project' button. Initializing project workspace...")
             await new_proj_btn.click()
             await self.page.wait_for_timeout(2000)
+
 
     async def select_image_mode(self) -> None:
         """Ensures Image mode is selected."""
