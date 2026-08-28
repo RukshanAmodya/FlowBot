@@ -278,36 +278,38 @@ class GoogleFlowAdapter:
         except Exception:
             pass
 
-        # Dismiss any open Radix settings dialog before looking for prompt box
+        # Dismiss any open dialogs/overlays
         await self.dismiss_popups()
-        await self.page.wait_for_timeout(400)
+        await self.page.wait_for_timeout(500)
 
         logger.info("Locating active prompt input textbox...")
         
-        # Extended selectors targeting both standard prompt bar and image edit view
+        # Broad list of Slate.js and contenteditable selectors
         editor_selectors = [
             "div[role='textbox'][data-slate-editor='true']",
             "div[data-slate-editor='true']",
-            "div[contenteditable='true']",
+            "[contenteditable='true']",
+            "div[role='textbox']",
             "div.sc-5c3af813-0 [role='textbox']",
             "div.sc-1c9f7009-0",
+            "div[data-slate-node='element']",
+            "p[data-slate-node='element']",
             "textarea",
-            "[data-testid='prompt-input']",
-            "div[role='textbox']"
+            "input[type='text']"
         ]
 
         prompt_box = None
         for sel_item in editor_selectors:
             try:
                 loc = self.page.locator(sel_item).last
-                if await loc.is_visible(timeout=1000):
+                if await loc.count() > 0:
                     prompt_box = loc
                     break
             except Exception:
                 continue
 
         if not prompt_box:
-            prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=4000)
+            prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=5000)
 
         if not prompt_box:
             raise FlowAutomationException(
@@ -316,18 +318,27 @@ class GoogleFlowAdapter:
             )
 
         try:
-            await prompt_box.click(timeout=3000)
+            await prompt_box.click(timeout=2000)
         except Exception:
-            logger.info("Click intercepted. Attempting force click & focus...")
             await prompt_box.click(force=True)
 
-        await prompt_box.focus()
+        try:
+            await prompt_box.focus()
+        except Exception:
+            pass
+
         await self.page.wait_for_timeout(300)
         
         # Type the prompt using keyboard simulation for Slate.js compatibility
-        await prompt_box.type(f" {prompt}", delay=15)
+        try:
+            await prompt_box.type(f" {prompt}", delay=15)
+        except Exception:
+            # Fallback to direct keyboard input
+            await self.page.keyboard.type(f" {prompt}", delay=15)
+
         logger.info(f"Prompt successfully inserted into prompt textbox: '{prompt}'")
         await self.page.wait_for_timeout(600)
+
 
 
     async def click_generate(self) -> None:
