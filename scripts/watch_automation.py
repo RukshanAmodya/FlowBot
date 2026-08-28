@@ -1,10 +1,16 @@
-"""Standalone visual automation test script to watch Google Flow in action."""
 import asyncio
+import sys
 from pathlib import Path
-from playwright.async_api import async_playwright
+
+# Add project root to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from app.config import settings
 from app.services.flow_adapter import GoogleFlowAdapter
 from app.services.image_downloader import ImageDownloader
+
 
 async def main():
     print("=" * 60)
