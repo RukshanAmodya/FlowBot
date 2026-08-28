@@ -264,34 +264,27 @@ class GoogleFlowAdapter:
             pass
 
     async def insert_prompt(self, prompt: str) -> None:
-        """Inserts the exact user prompt into the remembered image's edit view textbox and ensures Nano Banana 2 is active."""
+        """Inserts the exact user prompt into the active prompt input field."""
         # If an image edit URL was remembered and we are not on it, navigate to that exact image edit URL!
         if self.current_edit_url and self.page.url != self.current_edit_url:
             logger.info(f"Navigating to the remembered reference image edit URL: {self.current_edit_url}...")
             await self.page.goto(self.current_edit_url, wait_until="domcontentloaded")
             await self.page.wait_for_timeout(2000)
 
-        # Ensure that inside the active view, the model is set to Nano Banana 2
-        logger.info("Ensuring model is set to Nano Banana 2...")
-        try:
-            await self.select_nano_banana_2()
-        except Exception:
-            pass
-
-        # Dismiss any open dialogs/overlays
+        # Ensure popups are dismissed so prompt box is fully clickable
         await self.dismiss_popups()
-        await self.page.wait_for_timeout(500)
+        await self.page.wait_for_timeout(400)
 
         logger.info("Locating active prompt input textbox...")
         
-        # Specific Slate.js and visible contenteditable selectors (explicitly exclude hidden recaptcha)
+        # High priority visible prompt editor selectors
         editor_selectors = [
             "div[role='textbox'][data-slate-editor='true']",
             "div[data-slate-editor='true']",
-            "[contenteditable='true']:not([aria-hidden='true'])",
-            "div[role='textbox']:not([aria-hidden='true'])",
-            "div.sc-5c3af813-0 [role='textbox']",
             "div.sc-1c9f7009-0",
+            "[contenteditable='true']:not([aria-hidden='true'])",
+            "div.sc-5c3af813-0 [role='textbox']",
+            "div[role='textbox']:not([aria-hidden='true'])",
             "textarea:not([name*='recaptcha']):not([id*='recaptcha'])",
         ]
 
@@ -311,19 +304,18 @@ class GoogleFlowAdapter:
                 continue
 
         if not prompt_box:
-            # Fallback to general visible prompt input selectors
-            prompt_box = await self.find_element([
-                "div[role='textbox'][data-slate-editor='true']",
-                "[contenteditable='true']",
-                "textarea:not([name*='recaptcha'])"
-            ], timeout_ms=5000)
+            # Try clicking anywhere on the bottom prompt container
+            container = self.page.locator("div.sc-5c3af813-0, div.sc-5c3af813-10, div:has-text('Describe'), footer, [data-slate-editor='true']").first
+            if await container.is_visible(timeout=2000):
+                await container.click()
+                await self.page.wait_for_timeout(300)
+                prompt_box = self.page.locator("div[data-slate-editor='true'], [contenteditable='true']").last
 
         if not prompt_box:
             raise FlowAutomationException(
                 "FLOW_PAGE_LOAD_FAILED",
                 "Could not locate the prompt input field in Google Flow."
             )
-
 
         try:
             await prompt_box.click(timeout=2000)
@@ -341,11 +333,11 @@ class GoogleFlowAdapter:
         try:
             await prompt_box.type(f" {prompt}", delay=15)
         except Exception:
-            # Fallback to direct keyboard input
             await self.page.keyboard.type(f" {prompt}", delay=15)
 
         logger.info(f"Prompt successfully inserted into prompt textbox: '{prompt}'")
         await self.page.wait_for_timeout(600)
+
 
 
 

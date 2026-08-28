@@ -137,6 +137,7 @@ class FlowGeneratorService:
             await self.adapter.insert_prompt(prompt)
             await self.adapter.click_generate()
 
+
             new_image_elements = await self.wait_for_generation_complete(
                 initial_images=existing_images,
                 timeout_seconds=settings.GENERATION_TIMEOUT_SECONDS
