@@ -20,13 +20,18 @@ async def main(prompt: str = None, ref_img_path: str = None):
     print("=" * 60)
 
     if not prompt:
-        prompt = "A cinematic cute fluffy puppy in a magical sunflower garden, 8k"
+        prompt = "Add a cute, fluffy golden retriever puppy sitting happily in the water right next to this girl, highly detailed, realistic, cinematic lighting, 8k"
     
-    # Allow user to specify image path interactively if not provided
+    # Allow user to specify image path interactively or use specified Downloads image
     if not ref_img_path:
-        user_img_input = input("Enter path to your reference image (e.g. C:\\path\\to\\my_image.png) [or press ENTER to search for images]: ").strip().strip('"')
-        if user_img_input and Path(user_img_input).exists():
-            ref_img_path = str(Path(user_img_input).resolve())
+        default_downloads_img = Path(r"C:\Users\Rukshan Amodya\Downloads\38e1213cbf7935579e3234b266c13c42.jpg")
+        if default_downloads_img.exists():
+            ref_img_path = str(default_downloads_img.resolve())
+        else:
+            user_img_input = input("Enter path to your reference image [or press ENTER to search for images]: ").strip().strip('"')
+            if user_img_input and Path(user_img_input).exists():
+                ref_img_path = str(Path(user_img_input).resolve())
+
         else:
             # Check for any realistic test images in the workspace
             found_images = list(PROJECT_ROOT.glob("*.jpg")) + list(PROJECT_ROOT.glob("*.png")) + list(PROJECT_ROOT.glob("generated/**/*.png"))
