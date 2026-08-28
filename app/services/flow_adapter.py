@@ -202,23 +202,34 @@ class GoogleFlowAdapter:
 
             # 4. Click the newly uploaded image at the very first position (top/leftmost item on workspace)
             logger.info("Clicking the first uploaded image card position to open image view...")
-            # Use specific selectors targeting the first rendered image card item
             first_image_card = self.page.locator(
                 "div.sc-888a6226-1 img, div[data-testid='virtuoso-item-list'] img, main img, div[role='img']"
             ).first
             
             if await first_image_card.is_visible(timeout=6000):
                 await first_image_card.click()
-                logger.info("Successfully clicked the first image card to open the dedicated editor view.")
-                await self.page.wait_for_timeout(2000)
+                logger.info("Clicked first image card. Verifying transition to image edit view (/edit/)...")
+                
+                # Check URL transition to /project/.../edit/...
+                for _ in range(10):
+                    if "/edit/" in self.page.url:
+                        logger.info(f"Successfully entered image edit URL: {self.page.url}")
+                        break
+                    await self.page.wait_for_timeout(500)
+                
+                await self.page.wait_for_timeout(1500)
             else:
-                logger.warning("First canvas image card not found; falling back to canvas click...")
-                canvas = self.page.locator("div[data-testid='virtuoso-scroller']").first
-                if await canvas.is_visible(timeout=2000):
-                    await canvas.click(position={"x": 200, "y": 200})
+                logger.warning("First canvas image card not found; checking if already inside /edit/...")
+                if "/edit/" in self.page.url:
+                    logger.info(f"Already in image edit view: {self.page.url}")
+                else:
+                    canvas = self.page.locator("div[data-testid='virtuoso-scroller']").first
+                    if await canvas.is_visible(timeout=2000):
+                        await canvas.click(position={"x": 200, "y": 200})
         except Exception as e:
             logger.warning(f"Reference image upload workflow error: {e}")
             await self.dismiss_popups()
+
 
 
 
