@@ -28,19 +28,11 @@ async def main(prompt: str = None, ref_img_path: str = None):
         if default_downloads_img.exists():
             ref_img_path = str(default_downloads_img.resolve())
         else:
-            user_img_input = input("Enter path to your reference image [or press ENTER to search for images]: ").strip().strip('"')
-            if user_img_input and Path(user_img_input).exists():
-                ref_img_path = str(Path(user_img_input).resolve())
-
-        else:
             # Check for any realistic test images in the workspace
             found_images = list(PROJECT_ROOT.glob("*.jpg")) + list(PROJECT_ROOT.glob("*.png")) + list(PROJECT_ROOT.glob("generated/**/*.png"))
-            # Filter out sample_reference.png if possible
             real_images = [img for img in found_images if img.name != "sample_reference.png"]
             if real_images:
                 ref_img_path = str(real_images[0].resolve())
-            elif found_images:
-                ref_img_path = str(found_images[0].resolve())
             else:
                 sample_img = PROJECT_ROOT / "sample_reference.png"
                 if not sample_img.exists():
@@ -50,6 +42,7 @@ async def main(prompt: str = None, ref_img_path: str = None):
                 ref_img_path = str(sample_img.resolve())
 
     print(f"[INFO] Using reference image: {ref_img_path}")
+
 
 
 
