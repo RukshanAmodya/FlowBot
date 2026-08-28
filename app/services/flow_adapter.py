@@ -125,7 +125,7 @@ class GoogleFlowAdapter:
 
     async def insert_prompt(self, prompt: str) -> None:
         """Inserts the exact user prompt into the input field."""
-        logger.info("Locating prompt textarea...")
+        logger.info("Locating prompt textarea / editor...")
         prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=5000)
         if not prompt_box:
             raise FlowAutomationException(
@@ -134,21 +134,33 @@ class GoogleFlowAdapter:
             )
 
         await prompt_box.click()
-        await prompt_box.fill("")
-        await prompt_box.fill(prompt)
-        logger.info("Prompt successfully inserted.")
+        # Select all and delete to clear Slate editor cleanly
+        await self.page.keyboard.press("Control+A")
+        await self.page.keyboard.press("Backspace")
+        await self.page.wait_for_timeout(200)
+        
+        # Type the prompt using keyboard simulation for Slate.js compatibility
+        await prompt_box.type(prompt, delay=10)
+        logger.info("Prompt successfully inserted into editor.")
+        await self.page.wait_for_timeout(500)
 
     async def click_generate(self) -> None:
         """Triggers the generation action."""
-        logger.info("Locating Generate button...")
+        logger.info("Locating Generate / Create button...")
         gen_btn = await self.find_element(sel.GENERATE_BUTTON_SELECTORS, timeout_ms=5000)
-        if not gen_btn:
-            raise FlowAutomationException(
-                "GENERATION_FAILED",
-                "Could not locate the Generate button."
-            )
-        await gen_btn.click()
-        logger.info("Generate button clicked.")
+        if gen_btn:
+            try:
+                await gen_btn.click()
+                logger.info("Generate button clicked.")
+                await self.page.wait_for_timeout(1000)
+                return
+            except Exception as e:
+                logger.warning(f"Error clicking generate button: {e}. Falling back to keyboard Enter.")
+
+        logger.info("Falling back to pressing Enter in the prompt editor...")
+        await self.page.keyboard.press("Enter")
+        await self.page.wait_for_timeout(1000)
+
 
     async def check_quota_or_rate_limit(self) -> None:
         """Detects visible rate limit or quota exceeded warnings."""

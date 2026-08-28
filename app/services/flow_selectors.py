@@ -98,19 +98,22 @@ OUTPUT_COUNT_4_SELECTORS = [
 ]
 
 PROMPT_INPUT_SELECTORS = [
+    "div[role='textbox'][data-slate-editor='true']",
+    "div.sc-1c9f7009-0",
+    "div[contenteditable='true']",
     "textarea[placeholder*='Describe']",
     "textarea[placeholder*='prompt']",
     "textarea[aria-label*='Prompt']",
     "textarea[aria-label*='Describe']",
-    "div[contenteditable='true'][aria-label*='Prompt']",
-    "div[contenteditable='true']",
     "textarea",
 ]
 
 GENERATE_BUTTON_SELECTORS = [
+    "button:has(i:has-text('arrow_forward'))",
+    "button:has-text('Create')",
+    "div.sc-5c3af813-10 button.sc-5c3af813-5",
     "button:has-text('Generate')",
     "button[aria-label='Generate']",
-    "button:has-text('Create')",
     "[data-testid='generate-button']",
     "button[type='submit']",
 ]
@@ -118,10 +121,11 @@ GENERATE_BUTTON_SELECTORS = [
 GENERATING_INDICATORS = [
     "button[disabled]:has-text('Generate')",
     "button:has-text('Generating')",
+    "div[data-state='generating']",
     "[aria-busy='true']",
     "[role='progressbar']",
     ".loading-spinner",
-    "div[data-state='generating']",
+    "div.sc-5c3af813-10 button[disabled]",
 ]
 
 QUOTA_ERROR_SELECTORS = [
@@ -134,9 +138,13 @@ QUOTA_ERROR_SELECTORS = [
 ]
 
 GENERATED_IMAGE_CONTAINERS = [
+    "div[data-testid='virtuoso-scroller'] img",
+    "div.sc-888a6226-1 img",
+    "img[src^='blob:']",
+    "img[src*='googleusercontent.com']",
+    "img[src^='https://']",
     "[data-testid='generated-image']",
     ".generated-image-card",
     "div[role='img']",
-    "img[src^='blob:']",
-    "img[src^='https://']",
 ]
+
