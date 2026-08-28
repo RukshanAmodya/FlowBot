@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     )
 
     # Google Flow Settings
-    FLOW_URL: str = "https://labs.google/fx/tools/flow"
+    FLOW_URL: str = "https://labs.google/fx/tools/flow/project/3e041cb7-020b-49de-9bbf-6dbf42ac5469"
     FLOW_MODEL: str = "NANO_BANANA_2"
+
     IMAGE_COUNT: int = 4
     ASPECT_RATIO: str = "16:9"
     OUTPUT_STRATEGY: Literal["single_request", "multiple_requests"] = "single_request"
