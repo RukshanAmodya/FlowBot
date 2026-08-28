@@ -139,18 +139,37 @@ class GoogleFlowAdapter:
             logger.warning(f"Could not change output count: {e}")
 
     async def upload_reference_image(self, image_path: Path) -> None:
-        """Uploads a reference image to guide generation via file input or drag-and-drop."""
+        """Uploads a reference image to Google Flow and attaches it to the prompt."""
         logger.info(f"Uploading reference image from {image_path}...")
         try:
+            # 1. Open the Media / Add Asset Popover if not already open
+            add_media_btn = self.page.locator("button:has(i:has-text('add')), button:has-text('Upload media'), button[aria-label*='Add']").first
+            if await add_media_btn.is_visible(timeout=1500):
+                await add_media_btn.click()
+                await self.page.wait_for_timeout(800)
+
+            # 2. Locate the file input element and upload the file
             file_input = self.page.locator("input[type='file'][accept*='image']").first
             if await file_input.count() > 0:
                 await file_input.set_input_files(str(image_path))
-                logger.info("Reference image uploaded via file input.")
-                await self.page.wait_for_timeout(2000)
+                logger.info("Reference image file dispatched to Google Flow input.")
+                await self.page.wait_for_timeout(3000)
+
+                # 3. Click 'Add to Prompt' button in the media modal
+                add_to_prompt_btn = self.page.locator("button:has-text('Add to Prompt'), button:has-text('Add to prompt')").first
+                if await add_to_prompt_btn.is_visible(timeout=4000):
+                    await add_to_prompt_btn.click()
+                    logger.info("Successfully clicked 'Add to Prompt' for reference image.")
+                    await self.page.wait_for_timeout(1000)
+                else:
+                    logger.info("'Add to Prompt' button not visible; closing modal.")
+                    await self.dismiss_popups()
             else:
-                logger.warning("No file input found for reference image upload.")
+                logger.warning("No file input found in Google Flow DOM.")
         except Exception as e:
-            logger.warning(f"Reference image upload failed or not supported in this view: {e}")
+            logger.warning(f"Reference image upload workflow encountered an error: {e}")
+            await self.dismiss_popups()
+
 
 
     async def dismiss_popups(self) -> None:
