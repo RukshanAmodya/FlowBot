@@ -62,7 +62,14 @@ class GoogleFlowAdapter:
         if new_proj_btn:
             logger.info("Found 'New Project' button. Initializing project workspace...")
             await new_proj_btn.click()
-            await self.page.wait_for_timeout(2000)
+            # Wait for project URL transition (e.g. /tools/flow/project/...)
+            for _ in range(20):
+                if "/project/" in self.page.url:
+                    logger.info(f"Entered project workspace: {self.page.url}")
+                    break
+                await self.page.wait_for_timeout(500)
+            await self.page.wait_for_timeout(3000)
+
 
 
     async def select_image_mode(self) -> None:
