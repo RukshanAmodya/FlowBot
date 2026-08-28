@@ -223,15 +223,12 @@ class GoogleFlowAdapter:
             await prompt_box.click(force=True)
 
         await prompt_box.focus()
-        # Select all and delete to clear Slate editor cleanly
-        await self.page.keyboard.press("Control+A")
-        await self.page.keyboard.press("Backspace")
-        await self.page.wait_for_timeout(200)
         
         # Type the prompt using keyboard simulation for Slate.js compatibility
-        await prompt_box.type(prompt, delay=10)
+        await prompt_box.type(f" {prompt}", delay=10)
         logger.info("Prompt successfully inserted into editor.")
         await self.page.wait_for_timeout(500)
+
 
 
     async def click_generate(self) -> None:
