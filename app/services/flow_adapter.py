@@ -214,11 +214,31 @@ class GoogleFlowAdapter:
             pass
 
     async def insert_prompt(self, prompt: str) -> None:
-        """Inserts the exact user prompt into the input field."""
+        """Inserts the exact user prompt into the active input field (including opened image editor view)."""
         logger.info("Locating prompt textarea / editor...")
-        await self.dismiss_popups()
+        await self.page.wait_for_timeout(500)
 
-        prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=5000)
+        # Extended selectors including the opened image view placeholder: 'What do you want to change?'
+        editor_selectors = [
+            "div[role='textbox'][data-slate-editor='true']",
+            "div[data-slate-editor='true']",
+            "div:has-text('What do you want to change?') [contenteditable='true']",
+            "div.sc-5c3af813-0 [role='textbox']",
+            "div.sc-1c9f7009-0",
+            "div[contenteditable='true']",
+            "textarea",
+        ]
+
+        prompt_box = None
+        for sel_item in editor_selectors:
+            loc = self.page.locator(sel_item).last
+            if await loc.is_visible(timeout=1500):
+                prompt_box = loc
+                break
+
+        if not prompt_box:
+            prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=4000)
+
         if not prompt_box:
             raise FlowAutomationException(
                 "FLOW_PAGE_LOAD_FAILED",
@@ -229,34 +249,44 @@ class GoogleFlowAdapter:
             await prompt_box.click(timeout=3000)
         except Exception:
             logger.info("Click intercepted by overlay. Attempting force click & focus...")
-            await self.dismiss_popups()
             await prompt_box.click(force=True)
 
         await prompt_box.focus()
+        await self.page.wait_for_timeout(300)
         
         # Type the prompt using keyboard simulation for Slate.js compatibility
-        await prompt_box.type(f" {prompt}", delay=10)
-        logger.info("Prompt successfully inserted into editor.")
-        await self.page.wait_for_timeout(500)
-
-
+        await prompt_box.type(f" {prompt}", delay=15)
+        logger.info(f"Prompt successfully inserted into editor: '{prompt}'")
+        await self.page.wait_for_timeout(600)
 
     async def click_generate(self) -> None:
-        """Triggers the generation action."""
-        logger.info("Locating Generate / Create button...")
-        gen_btn = await self.find_element(sel.GENERATE_BUTTON_SELECTORS, timeout_ms=5000)
-        if gen_btn:
-            try:
-                await gen_btn.click()
-                logger.info("Generate button clicked.")
-                await self.page.wait_for_timeout(1000)
-                return
-            except Exception as e:
-                logger.warning(f"Error clicking generate button: {e}. Falling back to keyboard Enter.")
+        """Triggers the generation action (arrow button or Enter)."""
+        logger.info("Locating Generate / Arrow button...")
+        gen_btn_selectors = [
+            "button:has(i:has-text('arrow_forward'))",
+            "button:has(i:has-text('send'))",
+            "button:has-text('Create')",
+            "button:has-text('Generate')",
+            "[aria-label*='Create']",
+            "[aria-label*='Generate']",
+            "[aria-label*='Submit']"
+        ]
+        
+        for g_sel in gen_btn_selectors:
+            btn = self.page.locator(g_sel).last
+            if await btn.is_visible(timeout=1500):
+                try:
+                    await btn.click()
+                    logger.info(f"Generation triggered via button ({g_sel}).")
+                    await self.page.wait_for_timeout(1000)
+                    return
+                except Exception:
+                    pass
 
         logger.info("Falling back to pressing Enter in the prompt editor...")
         await self.page.keyboard.press("Enter")
         await self.page.wait_for_timeout(1000)
+
 
 
     async def check_quota_or_rate_limit(self) -> None:
