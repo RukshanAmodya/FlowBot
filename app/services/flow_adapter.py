@@ -89,42 +89,36 @@ class GoogleFlowAdapter:
     async def open_project_or_new(self) -> None:
         """Ensures the designated project workspace is open directly without creating new ones."""
         logger.info("Checking project workspace...")
-        if "/project/" in self.page.url:
-            logger.info(f"Active in designated project workspace: {self.page.url}")
-            return
-
-        # If not on project URL or contains hash/tools, navigate directly to clean settings.FLOW_URL
-        clean_url = settings.FLOW_URL.split("#")[0]
-        if clean_url not in self.page.url:
-            logger.info(f"Navigating directly to clean project workspace: {clean_url}...")
-            await self.page.goto(clean_url, wait_until="domcontentloaded", timeout=45000)
-            await self.page.wait_for_timeout(3000)
-        elif "#" in self.page.url:
-            logger.info(f"Clearing URL hash ({self.page.url}) to restore primary prompt canvas...")
-            await self.page.evaluate(f"window.location.hash = ''")
-            await self.page.wait_for_timeout(1000)
-
-
-
+        
         # Check if landed on Google Flow promotional landing page with 'Create with Google Flow' button
-        create_flow_btn = self.page.locator("button:has-text('Create with Google Flow')").first
-        if await create_flow_btn.is_visible(timeout=2500):
-            logger.info("Found 'Create with Google Flow' entry button. Entering workspace...")
+        create_flow_btn = self.page.locator("button:has-text('Create with Google Flow'), button:has-text('Try in Google Flow')").first
+        if await create_flow_btn.is_visible(timeout=2000):
+            logger.info("Found landing page entry button. Entering workspace...")
             await create_flow_btn.click()
             await self.page.wait_for_timeout(3000)
 
-        new_proj_btn = await self.find_element(sel.NEW_PROJECT_SELECTORS, timeout_ms=3000)
-        if new_proj_btn:
+        clean_url = settings.FLOW_URL.split("#")[0]
+        if "/project/" not in self.page.url:
+            logger.info(f"Navigating directly to project workspace: {clean_url}...")
+            await self.page.goto(clean_url, wait_until="domcontentloaded", timeout=45000)
+            await self.page.wait_for_timeout(3000)
 
+        # Check again if still on landing page
+        if await create_flow_btn.is_visible(timeout=1000):
+            await create_flow_btn.click()
+            await self.page.wait_for_timeout(3000)
+
+        new_proj_btn = await self.find_element(sel.NEW_PROJECT_SELECTORS, timeout_ms=2000)
+        if new_proj_btn and "/project/" not in self.page.url:
             logger.info("Found 'New Project' button. Initializing project workspace...")
             await new_proj_btn.click()
-            # Wait for project URL transition (e.g. /tools/flow/project/...)
             for _ in range(20):
                 if "/project/" in self.page.url:
                     logger.info(f"Entered project workspace: {self.page.url}")
                     break
                 await self.page.wait_for_timeout(500)
             await self.page.wait_for_timeout(3000)
+
 
 
 

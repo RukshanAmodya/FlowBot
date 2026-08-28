@@ -135,10 +135,10 @@ class FlowGeneratorService:
                 )
 
             await self.adapter.open_project_or_new()
-            await self.adapter.select_image_mode()
             await self.adapter.select_nano_banana_2()
             await self.adapter.set_aspect_ratio(aspect_ratio)
             await self.adapter.set_output_count(count)
+
 
             # Handle optional reference image
             if reference_image_base64 or reference_image_url:
