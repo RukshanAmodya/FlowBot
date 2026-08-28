@@ -167,3 +167,35 @@ async def download_generation_zip(generation_id: str):
         media_type="application/zip",
         filename=f"generation_{generation_id}.zip"
     )
+
+@router.post("/auth/upload-session")
+async def upload_browser_session(request: Request):
+    """Uploads and applies browser_profile.zip directly to VPS server."""
+    import shutil
+    import zipfile
+
+    form = await request.form()
+    file_item = form.get("file")
+    if not file_item:
+        raise HTTPException(status_code=400, detail="No session zip file provided")
+
+    zip_tmp = settings.temp_path / "browser_profile_uploaded.zip"
+    with open(zip_tmp, "wb") as f:
+        f.write(await file_item.read())
+
+    # Close active browser session before overwriting profile
+    await session_manager.close()
+
+    # Extract into browser_profile
+    with zipfile.ZipFile(zip_tmp, "r") as zip_ref:
+        zip_ref.extractall(settings.profile_path)
+
+    if zip_tmp.exists():
+        zip_tmp.unlink()
+
+    logger.info("Successfully received and extracted browser_profile onto VPS!")
+    return {
+        "success": True,
+        "message": "Browser profile and Google login session successfully applied to VPS!"
+    }
+
