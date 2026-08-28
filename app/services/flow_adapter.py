@@ -153,9 +153,24 @@ class GoogleFlowAdapter:
             logger.warning(f"Reference image upload failed or not supported in this view: {e}")
 
 
+    async def dismiss_popups(self) -> None:
+        """Closes any open popovers, dropdowns or radix dialog backdrops."""
+        try:
+            # Press Escape to close Radix popups / dropdowns
+            await self.page.keyboard.press("Escape")
+            await self.page.wait_for_timeout(200)
+            # If a backdrop overlay is still open, click the canvas or press Escape again
+            overlay = self.page.locator("div[data-state='open'][aria-hidden='true']").first
+            if await overlay.is_visible(timeout=200):
+                await self.page.keyboard.press("Escape")
+        except Exception:
+            pass
+
     async def insert_prompt(self, prompt: str) -> None:
         """Inserts the exact user prompt into the input field."""
         logger.info("Locating prompt textarea / editor...")
+        await self.dismiss_popups()
+
         prompt_box = await self.find_element(sel.PROMPT_INPUT_SELECTORS, timeout_ms=5000)
         if not prompt_box:
             raise FlowAutomationException(
@@ -163,7 +178,14 @@ class GoogleFlowAdapter:
                 "Could not locate the prompt input field in Google Flow."
             )
 
-        await prompt_box.click()
+        try:
+            await prompt_box.click(timeout=3000)
+        except Exception:
+            logger.info("Click intercepted by overlay. Attempting force click & focus...")
+            await self.dismiss_popups()
+            await prompt_box.click(force=True)
+
+        await prompt_box.focus()
         # Select all and delete to clear Slate editor cleanly
         await self.page.keyboard.press("Control+A")
         await self.page.keyboard.press("Backspace")
@@ -173,6 +195,7 @@ class GoogleFlowAdapter:
         await prompt_box.type(prompt, delay=10)
         logger.info("Prompt successfully inserted into editor.")
         await self.page.wait_for_timeout(500)
+
 
     async def click_generate(self) -> None:
         """Triggers the generation action."""
