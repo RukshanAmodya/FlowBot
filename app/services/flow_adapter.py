@@ -182,33 +182,44 @@ class GoogleFlowAdapter:
                         await upload_media_btn.click()
 
 
-            # 3. Track upload progress percentage (e.g. 7% -> 100%)
-            logger.info("Tracking upload progress until 100% complete...")
-            for _ in range(40):
-                # Check for upload percentage indicator (e.g. "7%", "100%", progressbar)
+            # 3. Track upload progress percentage (e.g. 7% -> 100%) and wait for full preview render
+            logger.info("Tracking upload progress until 100% complete and rendered...")
+            for _ in range(60):
+                # Percentage indicator (e.g. 7%, 50%, 100%) in the top right corner of the uploading card
                 progress_indicator = self.page.locator("*:has-text('%'), [role='progressbar']").first
                 if await progress_indicator.is_visible(timeout=500):
                     p_text = await progress_indicator.inner_text()
                     logger.info(f"Upload in progress: {p_text}")
                     await self.page.wait_for_timeout(1000)
                 else:
+                    logger.info("Upload percentage reached 100% and completed.")
                     break
 
-            await self.page.wait_for_timeout(3000)
+            # Buffer time for the image preview to fully replace the upload placeholder
+            logger.info("Waiting for uploaded reference image preview to fully render on workspace...")
+            await self.page.wait_for_timeout(4000)
             await self.dismiss_popups()
 
-            # 4. Click the newly uploaded image card on the workspace canvas to open it and activate its prompt box!
-            logger.info("Opening the uploaded image card on workspace...")
-            image_card = self.page.locator("div.sc-888a6226-1 img, div[data-testid='virtuoso-item-list'] img, main img, div[role='img']").first
-            if await image_card.is_visible(timeout=4000):
-                await image_card.click()
-                logger.info("Successfully clicked and opened uploaded image card.")
-                await self.page.wait_for_timeout(1200)
+            # 4. Click the newly uploaded image at the very first position (top/leftmost item on workspace)
+            logger.info("Clicking the first uploaded image card position to open image view...")
+            # Use specific selectors targeting the first rendered image card item
+            first_image_card = self.page.locator(
+                "div.sc-888a6226-1 img, div[data-testid='virtuoso-item-list'] img, main img, div[role='img']"
+            ).first
+            
+            if await first_image_card.is_visible(timeout=6000):
+                await first_image_card.click()
+                logger.info("Successfully clicked the first image card to open the dedicated editor view.")
+                await self.page.wait_for_timeout(2000)
             else:
-                logger.info("Canvas image card clicked or already active.")
+                logger.warning("First canvas image card not found; falling back to canvas click...")
+                canvas = self.page.locator("div[data-testid='virtuoso-scroller']").first
+                if await canvas.is_visible(timeout=2000):
+                    await canvas.click(position={"x": 200, "y": 200})
         except Exception as e:
             logger.warning(f"Reference image upload workflow error: {e}")
             await self.dismiss_popups()
+
 
 
 
