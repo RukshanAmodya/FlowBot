@@ -143,53 +143,59 @@ class GoogleFlowAdapter:
             logger.warning(f"Could not change output count: {e}")
 
     async def upload_reference_image(self, image_path: Path) -> None:
-        """Uploads a reference image to Google Flow and attaches it to the prompt."""
+        """Uploads a reference image to Google Flow according to the exact UI flow."""
         logger.info(f"Uploading reference image from {image_path}...")
         try:
-            # 1. Open the Media popup by clicking '+' or 'add_2' button in prompt bar
-            plus_btn = self.page.locator("button:has(i:has-text('add_2')), button:has(i:has-text('add')), [aria-label*='Add Media'], [aria-label*='Add to prompt']").first
-            if await plus_btn.is_visible(timeout=2000):
-                await plus_btn.click()
+            # 1. Look for top right '+' button or prompt bar '+' button to open upload menu
+            top_plus_btn = self.page.locator("header button:has(i:has-text('add')), button:has(i:has-text('add_2')), button:has(i:has-text('add'))").first
+            if await top_plus_btn.is_visible(timeout=2000):
+                await top_plus_btn.click()
                 await self.page.wait_for_timeout(800)
 
-            # 2. Upload file via the 'Upload media' button in the popover using expect_file_chooser
-            upload_media_btn = self.page.locator("button:has-text('Upload media'), button:has(i:has-text('upload'))").first
-            if await upload_media_btn.is_visible(timeout=2000):
-                logger.info("Found 'Upload media' button. Triggering file chooser...")
-                async with self.page.expect_file_chooser(timeout=5000) as fc_info:
+            # 2. Click 'Upload media' from dropdown/dialog menu using expect_file_chooser
+            upload_media_btn = self.page.locator("button:has-text('Upload media'), [role='menuitem']:has-text('Upload media'), div:has-text('Upload media')").first
+            if await upload_media_btn.is_visible(timeout=2500):
+                logger.info("Clicking 'Upload media' and choosing file...")
+                async with self.page.expect_file_chooser(timeout=6000) as fc_info:
                     await upload_media_btn.click()
                 file_chooser = await fc_info.value
                 await file_chooser.set_files(str(image_path))
-                logger.info(f"File {image_path.name} chosen via file chooser.")
+                logger.info(f"Selected file: {image_path.name}")
             else:
-                # Fallback directly to file input if present
-                file_input = self.page.locator("input[type='file'][accept*='image']").first
+                # Fallback directly to native input[type=file]
+                file_input = self.page.locator("input[type='file']").first
                 if await file_input.count() > 0:
                     await file_input.set_input_files(str(image_path))
-                    logger.info("File uploaded via fallback input[type=file].")
+                    logger.info("File uploaded via fallback file input.")
 
-            # 3. Wait for image upload processing and preview to appear
-            logger.info("Waiting for uploaded media to render in assets...")
-            await self.page.wait_for_timeout(3500)
+            # 3. Track upload progress percentage (e.g. 7% -> 100%)
+            logger.info("Tracking upload progress until 100% complete...")
+            for _ in range(40):
+                # Check for upload percentage indicator (e.g. "7%", "100%", progressbar)
+                progress_indicator = self.page.locator("*:has-text('%'), [role='progressbar']").first
+                if await progress_indicator.is_visible(timeout=500):
+                    p_text = await progress_indicator.inner_text()
+                    logger.info(f"Upload in progress: {p_text}")
+                    await self.page.wait_for_timeout(1000)
+                else:
+                    break
 
-            # 4. If first asset item in list is clickable, click it to select
-            first_asset = self.page.locator("div[data-testid='virtuoso-scroller'] [role='button'], div.sc-b0e5-2 [role='button']").first
-            if await first_asset.is_visible(timeout=2000):
-                await first_asset.click()
-                await self.page.wait_for_timeout(500)
+            await self.page.wait_for_timeout(3000)
+            await self.dismiss_popups()
 
-            # 5. Click 'Add to Prompt'
-            add_to_prompt_btn = self.page.locator("button:has-text('Add to Prompt'), button:has-text('Add to prompt')").first
-            if await add_to_prompt_btn.is_visible(timeout=4000):
-                await add_to_prompt_btn.click()
-                logger.info("Successfully clicked 'Add to Prompt' for uploaded reference image.")
-                await self.page.wait_for_timeout(1000)
+            # 4. Click the newly uploaded image card on the workspace canvas to open it and activate its prompt box!
+            logger.info("Opening the uploaded image card on workspace...")
+            image_card = self.page.locator("div.sc-888a6226-1 img, div[data-testid='virtuoso-item-list'] img, main img, div[role='img']").first
+            if await image_card.is_visible(timeout=4000):
+                await image_card.click()
+                logger.info("Successfully clicked and opened uploaded image card.")
+                await self.page.wait_for_timeout(1200)
             else:
-                logger.info("'Add to Prompt' button not found or already attached. Closing popover...")
-                await self.dismiss_popups()
+                logger.info("Canvas image card clicked or already active.")
         except Exception as e:
             logger.warning(f"Reference image upload workflow error: {e}")
             await self.dismiss_popups()
+
 
 
 
