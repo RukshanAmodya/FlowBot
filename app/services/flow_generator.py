@@ -96,10 +96,19 @@ class FlowGeneratorService:
         try:
             if "labs.google/fx/tools/flow" not in self.page.url:
                 logger.info(f"Navigating to {settings.FLOW_URL}...")
-                await self.page.goto(settings.FLOW_URL, wait_until="domcontentloaded", timeout=45000)
+                try:
+                    await self.page.goto(settings.FLOW_URL, wait_until="commit", timeout=45000)
+                except Exception as e:
+                    logger.info(f"Initial navigation notice ({e}); waiting for domcontentloaded...")
+                
+                try:
+                    await self.page.wait_for_load_state("domcontentloaded", timeout=20000)
+                except Exception:
+                    pass
                 await self.page.wait_for_timeout(3000)
             else:
                 logger.info(f"Reusing existing open Flow page: {self.page.url}")
+
 
             if not await self.adapter.check_authenticated():
                 raise FlowAutomationException(
