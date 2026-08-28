@@ -1,4 +1,4 @@
-﻿"""Direct SSH / SCP session upload script using PuTTY/OpenSSH key."""
+"""Direct SSH / SCP session upload script using PuTTY/OpenSSH key."""
 import sys
 import subprocess
 import shutil
@@ -22,19 +22,8 @@ if not PPK_KEY.exists():
 else:
     print(f"[INFO] Found SSH Key: {PPK_KEY.name}")
 
-# Check for pscp
-pscp_path = shutil.which("pscp")
-if pscp_path:
-    print("[INFO] Uploading browser_profile to VPS via pscp...")
-    cmd = [
-        "pscp",
-        "-i", str(PPK_KEY),
-        "-r",
-        str(PROFILE_DIR),
-        f"root@{VPS_IP}:/root/FlowBot/"
-    ]
-    res = subprocess.run(cmd)
-else:
-    print("[INFO] Using HTTP 1-Click Sync to VPS API...")
-    from scripts.sync_session_to_vps import sync_session_to_vps
-    sync_session_to_vps(VPS_IP)
+# Direct HTTP 1-Click Sync to VPS API (Fastest, avoids SFTP connection blocks)
+print("[INFO] Uploading session package directly to FlowBot API on VPS...")
+from scripts.sync_session_to_vps import sync_session_to_vps
+sync_session_to_vps(VPS_IP)
+
