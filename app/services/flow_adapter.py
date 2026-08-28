@@ -93,11 +93,17 @@ class GoogleFlowAdapter:
             logger.info(f"Active in designated project workspace: {self.page.url}")
             return
 
-        # If not on project URL, navigate directly to settings.FLOW_URL
-        if settings.FLOW_URL not in self.page.url:
-            logger.info(f"Navigating directly to project workspace: {settings.FLOW_URL}...")
-            await self.page.goto(settings.FLOW_URL, wait_until="domcontentloaded", timeout=45000)
+        # If not on project URL or contains hash/tools, navigate directly to clean settings.FLOW_URL
+        clean_url = settings.FLOW_URL.split("#")[0]
+        if clean_url not in self.page.url:
+            logger.info(f"Navigating directly to clean project workspace: {clean_url}...")
+            await self.page.goto(clean_url, wait_until="domcontentloaded", timeout=45000)
             await self.page.wait_for_timeout(3000)
+        elif "#" in self.page.url:
+            logger.info(f"Clearing URL hash ({self.page.url}) to restore primary prompt canvas...")
+            await self.page.evaluate(f"window.location.hash = ''")
+            await self.page.wait_for_timeout(1000)
+
 
 
         new_proj_btn = await self.find_element(sel.NEW_PROJECT_SELECTORS, timeout_ms=3000)
