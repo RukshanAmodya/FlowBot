@@ -1,7 +1,7 @@
 """API routes for FlowBot."""
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Depends, Security, Header, status
+from fastapi import APIRouter, HTTPException, Depends, Security, Header, status, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
