@@ -97,42 +97,60 @@ class GoogleFlowAdapter:
                 )
 
     async def set_aspect_ratio(self, ratio: str = "16:9") -> None:
-        """Configures the aspect ratio."""
+        """Configures the aspect ratio (e.g., 16:9, 1:1, 9:16, 4:3, 3:4, 21:9)."""
         logger.info(f"Configuring aspect ratio to {ratio}...")
-        options = sel.ASPECT_RATIO_OPTIONS.get(ratio)
-        if not options:
-            logger.warning(f"Unknown aspect ratio {ratio}, skipping custom ratio selection.")
-            return
+        try:
+            # Model & settings trigger button (e.g. [🍌 Nano Banana 2  crop_16_9  x4])
+            badge_trigger = self.page.locator("button:has-text('Banana'), button:has-text('Nano'), button:has(i:has-text('crop_'))").first
+            if await badge_trigger.is_visible(timeout=1500):
+                await badge_trigger.click()
+                await self.page.wait_for_timeout(600)
 
-        dropdown = await self.find_element(sel.ASPECT_RATIO_DROPDOWN_SELECTORS, timeout_ms=2000)
-        if dropdown:
-            await dropdown.click()
-            await self.page.wait_for_timeout(500)
-
-        option_elem = await self.find_element(options, timeout_ms=2000)
-        if option_elem:
-            await option_elem.click()
-            logger.info(f"Aspect ratio {ratio} selected.")
-        else:
-            logger.info(f"Aspect ratio option for {ratio} not directly interactive; proceeding with default.")
+                # Ratio icons or buttons inside popup
+                ratio_loc = self.page.locator(f"button:has-text('{ratio}'), [aria-label*='{ratio}'], button:has(i:has-text('crop_'))").first
+                if await ratio_loc.is_visible(timeout=1500):
+                    await ratio_loc.click()
+                    logger.info(f"Aspect ratio {ratio} selected.")
+                    await self.page.wait_for_timeout(400)
+                else:
+                    logger.info(f"Ratio {ratio} button not explicitly visible in popup; proceeding with current default.")
+        except Exception as e:
+            logger.warning(f"Could not change aspect ratio: {e}")
 
     async def set_output_count(self, count: int = 4) -> None:
-        """Configures output image count."""
-        if count != 4:
-            raise FlowAutomationException(
-                "OUTPUT_COUNT_NOT_SUPPORTED",
-                f"Requested output count {count} is not supported. Exactly 4 outputs required."
-            )
-        
-        logger.info("Ensuring output count is set to 4...")
-        dropdown = await self.find_element(sel.OUTPUT_COUNT_DROPDOWN_SELECTORS, timeout_ms=2000)
-        if dropdown:
-            await dropdown.click()
-            await self.page.wait_for_timeout(500)
-            opt4 = await self.find_element(sel.OUTPUT_COUNT_4_SELECTORS, timeout_ms=2000)
-            if opt4:
-                await opt4.click()
-                logger.info("Output count 4 selected from dropdown.")
+        """Configures output image count (1, 2, or 4)."""
+        logger.info(f"Ensuring output count is set to {count} (x{count})...")
+        try:
+            badge_trigger = self.page.locator("button:has-text('Banana'), button:has-text('Nano')").first
+            if await badge_trigger.is_visible(timeout=1500):
+                await badge_trigger.click()
+                await self.page.wait_for_timeout(600)
+
+                count_btn = self.page.locator(f"button:has-text('x{count}'), button:has-text('{count}')").first
+                if await count_btn.is_visible(timeout=1500):
+                    await count_btn.click()
+                    logger.info(f"Output count set to {count}.")
+                    await self.page.wait_for_timeout(400)
+                else:
+                    # Close popup if open
+                    await self.page.keyboard.press("Escape")
+        except Exception as e:
+            logger.warning(f"Could not change output count: {e}")
+
+    async def upload_reference_image(self, image_path: Path) -> None:
+        """Uploads a reference image to guide generation via file input or drag-and-drop."""
+        logger.info(f"Uploading reference image from {image_path}...")
+        try:
+            file_input = self.page.locator("input[type='file'][accept*='image']").first
+            if await file_input.count() > 0:
+                await file_input.set_input_files(str(image_path))
+                logger.info("Reference image uploaded via file input.")
+                await self.page.wait_for_timeout(2000)
+            else:
+                logger.warning("No file input found for reference image upload.")
+        except Exception as e:
+            logger.warning(f"Reference image upload failed or not supported in this view: {e}")
+
 
     async def insert_prompt(self, prompt: str) -> None:
         """Inserts the exact user prompt into the input field."""

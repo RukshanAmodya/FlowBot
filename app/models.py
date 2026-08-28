@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field, field_validator
 
 class GenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=1, description="Prompt for image generation")
-    count: int = Field(default=4, description="Number of images to generate (must be 4)")
-    aspect_ratio: str = Field(default="16:9", description="Aspect ratio (e.g. 16:9, 1:1, 9:16)")
+    count: int = Field(default=4, ge=1, le=4, description="Number of images to generate (1 to 4)")
+    aspect_ratio: str = Field(default="16:9", description="Aspect ratio (e.g. 16:9, 1:1, 9:16, 4:3, 3:4, 21:9)")
+    reference_image_base64: Optional[str] = Field(default=None, description="Optional base64 encoded reference image to upload/guide generation")
+    reference_image_url: Optional[str] = Field(default=None, description="Optional URL of a reference image to download and guide generation")
 
     @field_validator("prompt")
     @classmethod
@@ -16,12 +18,15 @@ class GenerateRequest(BaseModel):
             raise ValueError("Prompt must not be empty.")
         return v
 
-    @field_validator("count")
+    @field_validator("aspect_ratio")
     @classmethod
-    def validate_count(cls, v: int) -> int:
-        if v != 4:
-            raise ValueError("ONLY_FOUR_OUTPUTS_SUPPORTED: Exactly 4 outputs required.")
+    def validate_aspect_ratio(cls, v: str) -> str:
+        v = v.strip()
+        allowed = ["16:9", "1:1", "9:16", "4:3", "3:4", "21:9"]
+        if v not in allowed:
+            return "16:9"
         return v
+
 
 
 class GenerateResponse(BaseModel):

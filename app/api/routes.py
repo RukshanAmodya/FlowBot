@@ -82,8 +82,11 @@ async def generate_images(request: GenerateRequest):
                 prompt=request.prompt,
                 generation_id=generation_id,
                 count=request.count,
-                aspect_ratio=request.aspect_ratio
+                aspect_ratio=request.aspect_ratio,
+                reference_image_base64=request.reference_image_base64,
+                reference_image_url=request.reference_image_url
             )
+
 
             image_urls = [
                 f"/generated/{generation_id}/{f.name}"

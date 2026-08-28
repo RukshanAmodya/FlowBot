@@ -12,7 +12,9 @@ class GoogleFlowBrowser:
         prompt: str,
         generation_id: str,
         count: int = 4,
-        aspect_ratio: str = "16:9"
+        aspect_ratio: str = "16:9",
+        reference_image_base64: str = None,
+        reference_image_url: str = None
     ) -> List[Path]:
         """Main entry point to perform image generation through the browser."""
         page = await session_manager.get_or_create_context()
@@ -21,5 +23,8 @@ class GoogleFlowBrowser:
             prompt=prompt,
             generation_id=generation_id,
             count=count,
-            aspect_ratio=aspect_ratio
+            aspect_ratio=aspect_ratio,
+            reference_image_base64=reference_image_base64,
+            reference_image_url=reference_image_url
         )
+

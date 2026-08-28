@@ -86,9 +86,11 @@ class FlowGeneratorService:
         prompt: str,
         generation_id: str,
         count: int = 4,
-        aspect_ratio: str = "16:9"
+        aspect_ratio: str = "16:9",
+        reference_image_base64: str = None,
+        reference_image_url: str = None
     ) -> List[Path]:
-        """Runs the complete automation lifecycle to generate and download 4 images."""
+        """Runs the complete automation lifecycle to generate and download images."""
         logger.info(f"Starting generation flow for ID: {generation_id}")
 
         try:
@@ -98,7 +100,6 @@ class FlowGeneratorService:
                 await self.page.wait_for_timeout(3000)
             else:
                 logger.info(f"Reusing existing open Flow page: {self.page.url}")
-
 
             if not await self.adapter.check_authenticated():
                 raise FlowAutomationException(
@@ -111,6 +112,24 @@ class FlowGeneratorService:
             await self.adapter.select_nano_banana_2()
             await self.adapter.set_aspect_ratio(aspect_ratio)
             await self.adapter.set_output_count(count)
+
+            # Handle optional reference image
+            if reference_image_base64 or reference_image_url:
+                ref_path = settings.output_path / generation_id / "reference_input.png"
+                ref_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                if reference_image_base64:
+                    import base64
+                    raw_b64 = reference_image_base64.split(",", 1)[-1] if "," in reference_image_base64 else reference_image_base64
+                    ref_path.write_bytes(base64.b64decode(raw_b64))
+                    await self.adapter.upload_reference_image(ref_path)
+                elif reference_image_url:
+                    import httpx
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(reference_image_url, timeout=15)
+                        if resp.status_code == 200:
+                            ref_path.write_bytes(resp.content)
+                            await self.adapter.upload_reference_image(ref_path)
 
             existing_images = await self.get_existing_image_ids()
             logger.info(f"Found {len(existing_images)} baseline images in workspace.")
@@ -130,6 +149,7 @@ class FlowGeneratorService:
             )
 
             return saved_paths
+
 
         except FlowAutomationException as fae:
             await self.capture_diagnostic_snapshot(f"error_{fae.error_code.lower()}")
