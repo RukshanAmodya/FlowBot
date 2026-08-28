@@ -248,12 +248,16 @@ class GoogleFlowAdapter:
             pass
 
     async def insert_prompt(self, prompt: str) -> None:
-        """Inserts the exact user prompt into the remembered image's edit view textbox."""
+        """Inserts the exact user prompt into the remembered image's edit view textbox and ensures Nano Banana 2 is active."""
         # If an image edit URL was remembered and we are not on it, navigate to that exact image edit URL!
         if self.current_edit_url and self.page.url != self.current_edit_url:
             logger.info(f"Navigating to the remembered reference image edit URL: {self.current_edit_url}...")
             await self.page.goto(self.current_edit_url, wait_until="domcontentloaded")
             await self.page.wait_for_timeout(2000)
+
+        # Ensure that inside the opened image editor view, the model is explicitly set to Nano Banana 2!
+        logger.info("Ensuring model is set to Nano Banana 2 in the opened image view...")
+        await self.select_nano_banana_2()
 
         logger.info("Locating the active image prompt editor ('What do you want to change?' / editor)...")
         await self.page.wait_for_timeout(500)
