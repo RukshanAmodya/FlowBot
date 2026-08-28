@@ -142,33 +142,51 @@ class GoogleFlowAdapter:
         """Uploads a reference image to Google Flow and attaches it to the prompt."""
         logger.info(f"Uploading reference image from {image_path}...")
         try:
-            # 1. Open the Media / Add Asset Popover if not already open
-            add_media_btn = self.page.locator("button:has(i:has-text('add')), button:has-text('Upload media'), button[aria-label*='Add']").first
-            if await add_media_btn.is_visible(timeout=1500):
-                await add_media_btn.click()
+            # 1. Open the Media popup by clicking '+' or 'add_2' button in prompt bar
+            plus_btn = self.page.locator("button:has(i:has-text('add_2')), button:has(i:has-text('add')), [aria-label*='Add Media'], [aria-label*='Add to prompt']").first
+            if await plus_btn.is_visible(timeout=2000):
+                await plus_btn.click()
                 await self.page.wait_for_timeout(800)
 
-            # 2. Locate the file input element and upload the file
-            file_input = self.page.locator("input[type='file'][accept*='image']").first
-            if await file_input.count() > 0:
-                await file_input.set_input_files(str(image_path))
-                logger.info("Reference image file dispatched to Google Flow input.")
-                await self.page.wait_for_timeout(3000)
-
-                # 3. Click 'Add to Prompt' button in the media modal
-                add_to_prompt_btn = self.page.locator("button:has-text('Add to Prompt'), button:has-text('Add to prompt')").first
-                if await add_to_prompt_btn.is_visible(timeout=4000):
-                    await add_to_prompt_btn.click()
-                    logger.info("Successfully clicked 'Add to Prompt' for reference image.")
-                    await self.page.wait_for_timeout(1000)
-                else:
-                    logger.info("'Add to Prompt' button not visible; closing modal.")
-                    await self.dismiss_popups()
+            # 2. Upload file via the 'Upload media' button in the popover using expect_file_chooser
+            upload_media_btn = self.page.locator("button:has-text('Upload media'), button:has(i:has-text('upload'))").first
+            if await upload_media_btn.is_visible(timeout=2000):
+                logger.info("Found 'Upload media' button. Triggering file chooser...")
+                async with self.page.expect_file_chooser(timeout=5000) as fc_info:
+                    await upload_media_btn.click()
+                file_chooser = await fc_info.value
+                await file_chooser.set_files(str(image_path))
+                logger.info(f"File {image_path.name} chosen via file chooser.")
             else:
-                logger.warning("No file input found in Google Flow DOM.")
+                # Fallback directly to file input if present
+                file_input = self.page.locator("input[type='file'][accept*='image']").first
+                if await file_input.count() > 0:
+                    await file_input.set_input_files(str(image_path))
+                    logger.info("File uploaded via fallback input[type=file].")
+
+            # 3. Wait for image upload processing and preview to appear
+            logger.info("Waiting for uploaded media to render in assets...")
+            await self.page.wait_for_timeout(3500)
+
+            # 4. If first asset item in list is clickable, click it to select
+            first_asset = self.page.locator("div[data-testid='virtuoso-scroller'] [role='button'], div.sc-b0e5-2 [role='button']").first
+            if await first_asset.is_visible(timeout=2000):
+                await first_asset.click()
+                await self.page.wait_for_timeout(500)
+
+            # 5. Click 'Add to Prompt'
+            add_to_prompt_btn = self.page.locator("button:has-text('Add to Prompt'), button:has-text('Add to prompt')").first
+            if await add_to_prompt_btn.is_visible(timeout=4000):
+                await add_to_prompt_btn.click()
+                logger.info("Successfully clicked 'Add to Prompt' for uploaded reference image.")
+                await self.page.wait_for_timeout(1000)
+            else:
+                logger.info("'Add to Prompt' button not found or already attached. Closing popover...")
+                await self.dismiss_popups()
         except Exception as e:
-            logger.warning(f"Reference image upload workflow encountered an error: {e}")
+            logger.warning(f"Reference image upload workflow error: {e}")
             await self.dismiss_popups()
+
 
 
 
