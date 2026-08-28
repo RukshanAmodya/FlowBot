@@ -74,31 +74,40 @@ class GoogleFlowAdapter:
             logger.info("Image mode button not found or already default.")
 
     async def select_nano_banana_2(self) -> None:
-        """Explicitly selects Nano Banana 2 model if not already selected."""
+        """Explicitly selects Nano Banana 2 model in main canvas or opened image view."""
         logger.info("Attempting to select model: Nano Banana 2...")
         try:
-            # Check if badge already shows Nano Banana 2
-            badge = self.page.locator("button:has-text('Banana'), button:has-text('Nano')").first
+            # Check model badge (e.g. '🍌 Nano Banana Pro' or '🍌 Nano Banana 2')
+            badge = self.page.locator("button:has-text('Banana'), button:has-text('Nano')").last
             if await badge.is_visible(timeout=1500):
                 badge_text = await badge.inner_text()
                 if "Nano Banana 2" in badge_text:
                     logger.info("Nano Banana 2 is already selected on the badge.")
                     return
+                
+                # If badge is visible (e.g. Nano Banana Pro), click it to open settings popup
+                logger.info(f"Current badge: '{badge_text}'. Clicking to switch to Nano Banana 2...")
+                await badge.click()
+                await self.page.wait_for_timeout(800)
 
-            dropdown = await self.find_element(sel.MODEL_DROPDOWN_SELECTORS, timeout_ms=2000)
-            if dropdown:
+            # 1. Look for Model dropdown inside the settings popup
+            dropdown = self.page.locator("div[role='dialog'] button:has-text('Banana'), div[role='dialog'] [role='combobox'], div[role='dialog'] [id*='radix']").first
+            if await dropdown.is_visible(timeout=1500):
                 await dropdown.click()
-                await self.page.wait_for_timeout(800)
+                await self.page.wait_for_timeout(600)
 
-            model_option = await self.find_element(sel.NANO_BANANA_2_SELECTORS, timeout_ms=3000)
-            if model_option:
+            # 2. Select 'Nano Banana 2' option
+            model_option = self.page.locator("[role='option']:has-text('Nano Banana 2'), [role='menuitem']:has-text('Nano Banana 2'), div:has-text('Nano Banana 2')").last
+            if await model_option.is_visible(timeout=2500):
                 await model_option.click()
-                logger.info("Successfully selected Nano Banana 2.")
-                await self.page.wait_for_timeout(800)
+                logger.info("Successfully switched model to Nano Banana 2.")
+                await self.page.wait_for_timeout(600)
             else:
-                logger.info("Nano Banana 2 menu option not explicit; continuing with active model.")
+                logger.info("Nano Banana 2 option not explicitly found in menu; closing popup...")
+                await self.page.keyboard.press("Escape")
         except Exception as e:
             logger.info(f"Model selection notice: {e}. Continuing...")
+
 
 
     async def set_aspect_ratio(self, ratio: str = "16:9") -> None:
