@@ -17,6 +17,8 @@ class FlowAutomationException(Exception):
 class GoogleFlowAdapter:
     def __init__(self, page: Page):
         self.page = page
+        self.current_edit_url: Optional[str] = None
+
 
     async def find_element(self, selectors: List[str], timeout_ms: int = 5000) -> Optional[Locator]:
         """Tries a list of fallback selectors until one is visible and usable."""
@@ -208,12 +210,13 @@ class GoogleFlowAdapter:
             
             if await first_image_card.is_visible(timeout=6000):
                 await first_image_card.click()
-                logger.info("Clicked first image card. Verifying transition to image edit view (/edit/)...")
+                logger.info("Clicked first image card. Verifying and remembering transition to image edit URL (/edit/)...")
                 
-                # Check URL transition to /project/.../edit/...
-                for _ in range(10):
+                # Check and remember URL transition to /project/.../edit/...
+                for _ in range(12):
                     if "/edit/" in self.page.url:
-                        logger.info(f"Successfully entered image edit URL: {self.page.url}")
+                        self.current_edit_url = self.page.url
+                        logger.info(f"Remembered image edit URL: {self.current_edit_url}")
                         break
                     await self.page.wait_for_timeout(500)
                 
@@ -221,7 +224,8 @@ class GoogleFlowAdapter:
             else:
                 logger.warning("First canvas image card not found; checking if already inside /edit/...")
                 if "/edit/" in self.page.url:
-                    logger.info(f"Already in image edit view: {self.page.url}")
+                    self.current_edit_url = self.page.url
+                    logger.info(f"Already in image edit view, remembered URL: {self.current_edit_url}")
                 else:
                     canvas = self.page.locator("div[data-testid='virtuoso-scroller']").first
                     if await canvas.is_visible(timeout=2000):
@@ -229,12 +233,6 @@ class GoogleFlowAdapter:
         except Exception as e:
             logger.warning(f"Reference image upload workflow error: {e}")
             await self.dismiss_popups()
-
-
-
-
-
-
 
     async def dismiss_popups(self) -> None:
         """Closes any open popovers, dropdowns or radix dialog backdrops."""
@@ -250,11 +248,17 @@ class GoogleFlowAdapter:
             pass
 
     async def insert_prompt(self, prompt: str) -> None:
-        """Inserts the exact user prompt into the active input field (including opened image editor view)."""
-        logger.info("Locating prompt textarea / editor...")
+        """Inserts the exact user prompt into the remembered image's edit view textbox."""
+        # If an image edit URL was remembered and we are not on it, navigate to that exact image edit URL!
+        if self.current_edit_url and self.page.url != self.current_edit_url:
+            logger.info(f"Navigating to the remembered reference image edit URL: {self.current_edit_url}...")
+            await self.page.goto(self.current_edit_url, wait_until="domcontentloaded")
+            await self.page.wait_for_timeout(2000)
+
+        logger.info("Locating the active image prompt editor ('What do you want to change?' / editor)...")
         await self.page.wait_for_timeout(500)
 
-        # Extended selectors including the opened image view placeholder: 'What do you want to change?'
+        # Extended selectors targeting the opened image view placeholder: 'What do you want to change?'
         editor_selectors = [
             "div[role='textbox'][data-slate-editor='true']",
             "div[data-slate-editor='true']",
@@ -292,7 +296,7 @@ class GoogleFlowAdapter:
         
         # Type the prompt using keyboard simulation for Slate.js compatibility
         await prompt_box.type(f" {prompt}", delay=15)
-        logger.info(f"Prompt successfully inserted into editor: '{prompt}'")
+        logger.info(f"Prompt successfully inserted into image edit textbox: '{prompt}'")
         await self.page.wait_for_timeout(600)
 
     async def click_generate(self) -> None:
