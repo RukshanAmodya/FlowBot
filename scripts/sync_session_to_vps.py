@@ -1,4 +1,4 @@
-﻿"""Script to 1-click sync local authenticated Google session to VPS server."""
+"""Script to 1-click sync local authenticated Google session to VPS server."""
 import sys
 import os
 import zipfile
@@ -13,9 +13,9 @@ def sync_session_to_vps(vps_ip: str, vps_port: int = 8000):
         print(f"[ERROR] Local browser_profile directory does not exist at {PROFILE_DIR}")
         return
 
-    print(f"==================================================")
-    print(f"📦 Packaging local Google Flow session...")
-    print(f"==================================================")
+    print("==================================================")
+    print("[INFO] Packaging local Google Flow session...")
+    print("==================================================")
 
     zip_path = PROJECT_ROOT / "browser_profile_sync.zip"
     if zip_path.exists():
@@ -32,18 +32,18 @@ def sync_session_to_vps(vps_ip: str, vps_port: int = 8000):
                     pass
 
     print(f"[SUCCESS] Session packaged ({zip_path.stat().st_size / 1024 / 1024:.2f} MB)")
-    print(f"🚀 Uploading session directly to VPS: http://{vps_ip}:{vps_port}/api/v1/auth/upload-session ...")
+    print(f"[INFO] Uploading session directly to VPS: http://{vps_ip}:{vps_port}/api/v1/auth/upload-session ...")
 
     url = f"http://{vps_ip}:{vps_port}/api/v1/auth/upload-session"
     try:
         with open(zip_path, "rb") as f:
             files = {"file": ("browser_profile.zip", f, "application/zip")}
-            response = httpx.post(url, files=files, timeout=60.0)
+            response = httpx.post(url, files=files, timeout=120.0)
 
         if response.status_code == 200:
             print("==================================================")
-            print("🎉 SUCCESS! Google Login Session successfully synced to VPS!")
-            print(f"Now your VPS ({vps_ip}) is 100% authenticated and ready to generate images!")
+            print("[SUCCESS] Google Login Session successfully synced to VPS!")
+            print(f"[INFO] Now your VPS ({vps_ip}) is 100% authenticated and ready to generate images!")
             print("==================================================")
         else:
             print(f"[FAILED] Server returned status {response.status_code}: {response.text}")
@@ -52,6 +52,7 @@ def sync_session_to_vps(vps_ip: str, vps_port: int = 8000):
     finally:
         if zip_path.exists():
             zip_path.unlink()
+
 
 if __name__ == "__main__":
     vps_ip = sys.argv[1] if len(sys.argv) > 1 else "140.245.107.135"

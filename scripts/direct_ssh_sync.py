@@ -24,6 +24,7 @@ else:
 
 # Direct HTTP 1-Click Sync to VPS API (Fastest, avoids SFTP connection blocks)
 print("[INFO] Uploading session package directly to FlowBot API on VPS...")
-from scripts.sync_session_to_vps import sync_session_to_vps
+from sync_session_to_vps import sync_session_to_vps
 sync_session_to_vps(VPS_IP)
+
 
