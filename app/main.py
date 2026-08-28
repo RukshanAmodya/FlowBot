@@ -62,5 +62,7 @@ async def serve_root_dashboard():
         return FileResponse(str(index_file))
     return {"message": "FlowBot Studio API is running. Visit /docs for documentation."}
 
+# Mount API router with both /api/v1 prefix and root for full backward & frontend compatibility
+app.include_router(router, prefix="/api/v1")
 app.include_router(router)
 
