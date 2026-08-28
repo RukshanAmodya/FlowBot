@@ -14,16 +14,20 @@ from app.services.image_downloader import ImageDownloader
 
 
 
-async def main():
+async def main(prompt: str = None, ref_img_path: str = None):
     print("=" * 60)
-    print("🚀 Launching visible Chromium browser window...")
+    print("[INFO] Launching visible Chromium browser window...")
     print("=" * 60)
 
-    prompt = input("\nEnter prompt to test [or press ENTER for default]: ").strip()
     if not prompt:
-        prompt = "A cute fluffy golden retriever puppy in a field of sunflowers, 8k photo"
-
-    ref_img_path = input("Enter path to a reference image [or press ENTER to skip]: ").strip()
+        prompt = "A cinematic cute fluffy puppy in a magical sunflower garden, 8k"
+    
+    # Check if a test reference image exists in generated folders
+    if not ref_img_path:
+        test_images = list(Path("generated").glob("**/*.png"))
+        if test_images:
+            ref_img_path = str(test_images[0])
+            print(f"[INFO] Using test reference image: {ref_img_path}")
 
     async with async_playwright() as p:
         # Launch visible browser with delay so you can watch everything step by step
@@ -67,13 +71,13 @@ async def main():
         print("[Step 7] Clicking Create / Generate button...")
         await adapter.click_generate()
 
-        print("\n⏳ [Step 8] Waiting for Google Flow to finish generating 4 images...")
-        # Wait and observe
+        print("\n[Step 8] Waiting for Google Flow to finish generating 4 images...")
         await page.wait_for_timeout(35000)
 
-        print("\n🎉 Done! The browser will stay open for 30 seconds so you can inspect everything.")
+        print("\n[SUCCESS] Done! Keeping browser open for 30s for inspection...")
         await page.wait_for_timeout(30000)
         await context.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
+
