@@ -94,9 +94,15 @@
       </div>
 
       <div class="flex items-center space-x-4">
+        <!-- 1-Click Sync Profile Button -->
+        <label for="syncSessionFileInput" class="cursor-pointer text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition">
+          <span>🔑 Sync Google Session</span>
+          <input type="file" id="syncSessionFileInput" accept=".zip" class="hidden" onchange="uploadSessionZip(this)" />
+        </label>
+
         <div id="statusIndicator" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-dark-800 border border-white/5 text-xs">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="statusText" class="text-slate-300">API Connected</span>
+          <span id="statusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span id="statusText" class="text-slate-300">Checking...</span>
         </div>
         <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-white transition flex items-center space-x-1 px-2.5 py-1.5 rounded-lg hover:bg-white/5">
           <span>Swagger Docs</span>
@@ -105,6 +111,7 @@
       </div>
     </div>
   </header>
+
 
   <!-- Main Container -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -374,7 +381,7 @@
       }, 1000);
 
       try {
-        const response = await fetch('/generate', {
+        const response = await fetch('/api/v1/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -399,6 +406,60 @@
         document.getElementById('progressBox').classList.add('hidden');
       }
     }
+
+    async function checkServerStatus() {
+      try {
+        const res = await fetch('/api/v1/status');
+        if (res.ok) {
+          const s = await res.json();
+          const dot = document.getElementById('statusDot');
+          const txt = document.getElementById('statusText');
+          
+          if (s.busy) {
+            dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
+            txt.innerText = `Busy: Generating (${s.current_generation_id || 'active'})`;
+          } else if (s.flow_authenticated) {
+            dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+            txt.innerText = "Google Flow: Connected";
+          } else {
+            dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+            txt.innerText = "API Ready";
+          }
+        }
+      } catch (e) {
+        document.getElementById('statusDot').className = "w-2 h-2 rounded-full bg-red-500";
+        document.getElementById('statusText').innerText = "Offline";
+      }
+    }
+
+    async function uploadSessionZip(input) {
+      if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        document.getElementById('statusText').innerText = "Uploading Session...";
+        try {
+          const res = await fetch('/api/v1/auth/upload-session', {
+            method: 'POST',
+            body: formData
+          });
+          const d = await res.json();
+          if (res.ok && d.success) {
+            alert("🎉 Google Session successfully uploaded and synced to Server!");
+            checkServerStatus();
+          } else {
+            alert(`Session sync error: ${d.message || 'Failed'}`);
+          }
+        } catch (e) {
+          alert(`Upload failed: ${e.message}`);
+        }
+      }
+    }
+
+    // Auto poll status every 5 seconds
+    setInterval(checkServerStatus, 5000);
+    checkServerStatus();
 
     function renderImages(data) {
       const grid = document.getElementById('imagesGrid');
@@ -445,3 +506,4 @@
   </script>
 </body>
 </html>
+
