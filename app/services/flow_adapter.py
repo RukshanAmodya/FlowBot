@@ -92,23 +92,39 @@ class GoogleFlowAdapter:
                 await badge.click()
                 await self.page.wait_for_timeout(800)
 
-            # 1. Look for Model dropdown inside the settings popup
-            dropdown = self.page.locator("div[role='dialog'] button:has-text('Banana'), div[role='dialog'] [role='combobox'], div[role='dialog'] [id*='radix']").first
-            if await dropdown.is_visible(timeout=1500):
-                await dropdown.click()
-                await self.page.wait_for_timeout(600)
+            # 1. Inside the settings popup, locate the model selector row/button
+            # As shown in user screenshot: [🍌 Nano Banana Pro  ▾]
+            model_selector = self.page.locator(
+                "div[role='dialog'] button:has-text('Banana'), "
+                "div[data-state='open'] button:has-text('Banana'), "
+                "div[role='dialog'] [role='combobox'], "
+                "[role='dialog'] button:has-text('Nano')"
+            ).first
 
-            # 2. Select 'Nano Banana 2' option
-            model_option = self.page.locator("[role='option']:has-text('Nano Banana 2'), [role='menuitem']:has-text('Nano Banana 2'), div:has-text('Nano Banana 2')").last
-            if await model_option.is_visible(timeout=2500):
+            if await model_selector.is_visible(timeout=2000):
+                logger.info("Found model dropdown in popup. Clicking to open options...")
+                await model_selector.click()
+                await self.page.wait_for_timeout(800)
+
+            # 2. Select 'Nano Banana 2' from the list of options
+            model_option = self.page.locator(
+                "[role='option']:has-text('Nano Banana 2'), "
+                "[role='menuitem']:has-text('Nano Banana 2'), "
+                "div[role='menu'] div:has-text('Nano Banana 2'), "
+                "div[data-radix-popper-content-wrapper] *:has-text('Nano Banana 2'), "
+                "div:has-text('Nano Banana 2')"
+            ).last
+
+            if await model_option.is_visible(timeout=3000):
                 await model_option.click()
                 logger.info("Successfully switched model to Nano Banana 2.")
-                await self.page.wait_for_timeout(600)
+                await self.page.wait_for_timeout(800)
             else:
-                logger.info("Nano Banana 2 option not explicitly found in menu; closing popup...")
+                logger.info("Nano Banana 2 menu option not explicitly found in menu; closing popup...")
                 await self.page.keyboard.press("Escape")
         except Exception as e:
             logger.info(f"Model selection notice: {e}. Continuing...")
+
 
 
 
