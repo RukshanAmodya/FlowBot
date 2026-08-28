@@ -3,8 +3,12 @@ import asyncio
 from pathlib import Path
 from typing import List, Optional
 from playwright.async_api import Page, Locator
+from app.config import settings
+
 from app.services import flow_selectors as sel
+
 from app.utils.logger import logger
+
 
 class FlowAutomationException(Exception):
     def __init__(self, error_code: str, message: str, details: Optional[dict] = None):
