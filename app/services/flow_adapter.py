@@ -171,8 +171,12 @@ class GoogleFlowAdapter:
             else:
                 logger.info("Nano Banana 2 menu option not explicitly found in menu; closing popup...")
                 await self.page.keyboard.press("Escape")
+                await self.page.wait_for_timeout(300)
         except Exception as e:
             logger.info(f"Model selection notice: {e}. Continuing...")
+        finally:
+            await self.dismiss_popups()
+
 
 
 

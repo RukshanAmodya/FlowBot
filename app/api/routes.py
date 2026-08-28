@@ -40,30 +40,23 @@ async def health_check():
 async def get_status():
     """Status endpoint reporting browser, auth state, and logged-in Google email."""
     is_running = await session_manager.is_running()
+    is_locked = session_manager.lock.locked()
     is_auth = False
     user_email = None
 
-    if is_running and session_manager._page:
-        adapter = GoogleFlowAdapter(session_manager._page)
-        is_auth = await adapter.check_authenticated()
-        user_email = await adapter.get_logged_in_email()
-    else:
-        # Check Preferences file directly
-        try:
-            import json
-            pref_file = settings.profile_path / "Default" / "Preferences"
-            if pref_file.exists():
-                data = json.loads(pref_file.read_text(encoding="utf-8", errors="ignore"))
-                accounts = data.get("account_info", [])
-                if accounts and isinstance(accounts, list):
-                    user_email = accounts[0].get("email")
-                    if user_email:
-                        is_auth = True
-        except Exception:
-            pass
+    try:
+        import json
+        pref_file = settings.profile_path / "Default" / "Preferences"
+        if pref_file.exists():
+            data = json.loads(pref_file.read_text(encoding="utf-8", errors="ignore"))
+            accounts = data.get("account_info", [])
+            if accounts and isinstance(accounts, list):
+                user_email = accounts[0].get("email")
+                if user_email:
+                    is_auth = True
+    except Exception:
+        pass
 
-    is_locked = session_manager.lock.locked()
-    
     return StatusResponse(
         browser_running=is_running,
         flow_authenticated=is_auth,
@@ -72,6 +65,7 @@ async def get_status():
         busy=is_locked,
         current_generation_id=session_manager.current_generation_id
     )
+
 
 
 
