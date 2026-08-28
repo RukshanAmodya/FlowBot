@@ -40,7 +40,7 @@ async def main():
 
         page = context.pages[0] if context.pages else await context.new_page()
         adapter = GoogleFlowAdapter(page)
-        downloader = ImageDownloader()
+        downloader = ImageDownloader(settings.output_path)
 
         print("\n[Step 1] Navigating to Google Flow...")
         await page.goto("https://labs.google/fx/tools/flow", wait_until="domcontentloaded")
