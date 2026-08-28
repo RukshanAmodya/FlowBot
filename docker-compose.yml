@@ -1,0 +1,22 @@
+﻿version: '3.8'
+
+services:
+  flowbot:
+    build: .
+    container_name: flowbot_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HEADLESS=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_KEY=
+      - FLOW_MODEL=NANO_BANANA_2
+      - IMAGE_COUNT=4
+      - ASPECT_RATIO=16:9
+    volumes:
+      - ./browser_profile:/app/browser_profile
+      - ./generated:/app/generated
+      - ./logs:/app/logs
+      - ./screenshots:/app/screenshots

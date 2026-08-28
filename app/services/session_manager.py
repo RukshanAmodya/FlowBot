@@ -25,16 +25,19 @@ class BrowserSessionManager:
         
         self._context = await self._playwright.chromium.launch_persistent_context(
             user_data_dir=str(settings.profile_path),
-            headless=False,
-            slow_mo=100,  # Slight delay so user can visually see clicks and typing
-            viewport=None,  # Match normal maximized screen
+            headless=settings.HEADLESS,
+            slow_mo=50 if settings.HEADLESS else 100,
+            viewport=None if not settings.HEADLESS else {"width": 1920, "height": 1080},
             args=[
                 "--start-maximized",
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
-                "--disable-dev-shm-usage"
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-setuid-sandbox"
             ]
         )
+
 
 
         pages = self._context.pages
