@@ -160,17 +160,17 @@ class FlowGeneratorService:
                             ref_path.write_bytes(resp.content)
                             await self.adapter.upload_reference_image(ref_path)
 
-                # Step 4: Inside opened reference image view, switch Model from Pro to Nano Banana 2 & ensure 1 output
-                logger.info("Inside reference image view: Switching Model to Nano Banana 2...")
-                await self.adapter.select_nano_banana_2()
-                await self.adapter.set_output_count(count)
+                # Step 4: Inside opened reference image view, switch Model from Pro to Nano Banana 2 & ensure 1 output in 1 single step
+                logger.info("Inside reference image view: Switching Model to Nano Banana 2 (1-step)...")
+                await self.adapter.switch_model_and_settings_in_view(model_name="Nano Banana 2", count=count)
 
             existing_images = await self.get_existing_image_ids()
             logger.info(f"Found {len(existing_images)} baseline images in workspace.")
 
-            # Step 5: Type prompt and generate exactly 1 image
+            # Step 5: Type prompt directly into the open reference image edit view
             await self.adapter.insert_prompt(prompt)
             await self.adapter.click_generate()
+
 
             new_image_elements = await self.wait_for_generation_complete(
                 initial_images=existing_images,

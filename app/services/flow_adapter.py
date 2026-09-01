@@ -136,88 +136,63 @@ class GoogleFlowAdapter:
         else:
             logger.info("Image mode button not found or already default.")
 
-    async def select_nano_banana_2(self) -> None:
-        """Explicitly selects Nano Banana 2 model in main canvas or opened image view."""
-        logger.info("Attempting to select model: Nano Banana 2 (Exact)...")
+    async def switch_model_and_settings_in_view(self, model_name: str = "Nano Banana 2", count: int = 1) -> None:
+        """Single-step configuration inside image view: switches model and count in 1 single popup opening."""
+
+        logger.info(f"Configuring image view settings (Model: {model_name}, Count: x{count})...")
         try:
-            # Check model badge inside current view (e.g. '🍌 Nano Banana Pro' or '🍌 Nano Banana 2')
-            # Look for badge at bottom toolbar
-            badge = self.page.locator("button:has-text('Banana'), button:has-text('Nano')").last
+            badge = self.page.locator("button:has-text('Banana'), button:has-text('Nano'), button:has-text('Pro')").last
             if await badge.is_visible(timeout=1500):
                 badge_text = await badge.inner_text()
-                if "Nano Banana 2" in badge_text and "Lite" not in badge_text:
-                    logger.info("Nano Banana 2 is already active.")
+                # If already Nano Banana 2 and x1, do not touch
+                if "Nano Banana 2" in badge_text and "Lite" not in badge_text and f"x{count}" in badge_text:
+                    logger.info("Settings already match Nano Banana 2 and count.")
                     return
-                
-                logger.info(f"Current badge: '{badge_text}'. Clicking to switch to Nano Banana 2...")
+
+                logger.info(f"Opening settings popup from badge: '{badge_text}'...")
                 await badge.click()
                 await self.page.wait_for_timeout(600)
 
-                # 1. Inside popup, click model dropdown if present
-                model_selector = self.page.locator(
-                    "div[role='dialog'] button:has-text('Banana'), "
-                    "div[data-state='open'] button:has-text('Banana'), "
-                    "div[role='dialog'] [role='combobox']"
-                ).first
-
-                if await model_selector.is_visible(timeout=1000):
-                    logger.info("Found model dropdown in popup. Opening options...")
-                    await model_selector.click()
-                    await self.page.wait_for_timeout(600)
-
-                # 2. Select EXACTLY 'Nano Banana 2'
-                model_options = await self.page.locator(
-                    "[role='option'], [role='menuitem'], [role='menuitemradio'], div[role='menu'] > div, div[data-radix-popper-content-wrapper] button"
-                ).all()
-
-                selected = False
-                for opt in model_options:
-                    try:
-                        txt = await opt.inner_text()
-                        if ("Nano Banana 2" in txt or "Banana 2" in txt) and "Lite" not in txt and "Pro" not in txt:
-                            logger.info(f"Found exact Nano Banana 2 option: '{txt}'. Clicking...")
-                            await opt.click()
-                            selected = True
-                            await self.page.wait_for_timeout(600)
-                            break
-                    except Exception:
-                        continue
-
-                if not selected:
-                    exact_loc = self.page.locator("text=/^.*Nano Banana 2.*$/").first
-                    if await exact_loc.is_visible(timeout=1000):
-                        await exact_loc.click()
-                        logger.info("Clicked Nano Banana 2 option.")
+                # 1. Switch Model to Nano Banana 2 (if model selector dropdown exists)
+                model_dropdown = self.page.locator("div[role='dialog'] button:has-text('Banana'), div[role='dialog'] button:has-text('Pro'), div[role='dialog'] [role='combobox']").first
+                if await model_dropdown.is_visible(timeout=800):
+                    await model_dropdown.click()
+                    await self.page.wait_for_timeout(500)
+                    
+                    # Target Nano Banana 2 option
+                    opt_cand = self.page.locator("div[role='menu'] *:has-text('Nano Banana 2'), [role='option']:has-text('Nano Banana 2'), button:has-text('Nano Banana 2')").first
+                    if await opt_cand.is_visible(timeout=1000):
+                        await opt_cand.click()
+                        logger.info("Selected Nano Banana 2.")
                         await self.page.wait_for_timeout(500)
 
+                # 2. Select Count (e.g. x1)
+                count_btn = self.page.locator(f"button:has-text('x{count}'), button:has-text('{count}')").first
+                if await count_btn.is_visible(timeout=800):
+                    await count_btn.click()
+                    logger.info(f"Selected count x{count}.")
+                    await self.page.wait_for_timeout(400)
+
         except Exception as e:
-            logger.info(f"Model selection notice: {e}. Continuing...")
+            logger.info(f"Settings adjustment notice: {e}")
         finally:
-            # DO NOT PRESS ESCAPE (which closes image edit view)! Instead click gently on prompt bar
+            # Gently focus on the prompt input box at the bottom (without pressing Escape)
             try:
-                prompt_bar = self.page.locator("div[role='textbox'], div[data-slate-editor='true'], footer").last
-                if await prompt_bar.is_visible(timeout=500):
-                    await prompt_bar.click(position={"x": 50, "y": 10})
+                prompt_input = self.page.locator("div[role='textbox'], [contenteditable='true']").last
+                if await prompt_input.is_visible(timeout=500):
+                    await prompt_input.click()
             except Exception:
                 pass
-
-
-
-
-
-
 
     async def set_aspect_ratio(self, ratio: str = "9:16") -> None:
         """Configures the aspect ratio (e.g., 9:16, 16:9, 1:1, 4:3, 3:4)."""
         logger.info(f"Configuring aspect ratio to {ratio}...")
         try:
-            # Model & settings trigger button (e.g. [🍌 Nano Banana 2  crop_portrait  x1])
             badge_trigger = self.page.locator("button:has-text('Banana'), button:has-text('Nano'), button:has(i:has-text('crop_'))").first
             if await badge_trigger.is_visible(timeout=1500):
                 await badge_trigger.click()
                 await self.page.wait_for_timeout(600)
 
-                # Map ratio to exact UI labels (e.g., 9:16 is '9:16' or 'Portrait' or '9 : 16')
                 ratio_candidates = [
                     f"button:has-text('{ratio}')",
                     f"[aria-label*='{ratio}']",
@@ -227,21 +202,14 @@ class GoogleFlowAdapter:
                     ratio_candidates.extend(["button:has-text('9:16')", "button:has-text('Portrait')", "button:has(i:has-text('crop_portrait'))"])
                 elif ratio == "16:9":
                     ratio_candidates.extend(["button:has-text('16:9')", "button:has-text('Landscape')", "button:has(i:has-text('crop_landscape'))"])
-                elif ratio == "1:1":
-                    ratio_candidates.extend(["button:has-text('1:1')", "button:has-text('Square')", "button:has(i:has-text('crop_square'))"])
 
-                ratio_selected = False
                 for r_sel in ratio_candidates:
                     ratio_loc = self.page.locator(r_sel).first
                     if await ratio_loc.is_visible(timeout=800):
                         await ratio_loc.click()
-                        logger.info(f"Aspect ratio {ratio} selected using selector: {r_sel}")
-                        ratio_selected = True
+                        logger.info(f"Aspect ratio {ratio} selected.")
                         await self.page.wait_for_timeout(400)
                         break
-
-                if not ratio_selected:
-                    logger.info(f"Ratio {ratio} button not explicitly matched; proceeding with current default.")
         except Exception as e:
             logger.warning(f"Could not change aspect ratio: {e}")
         finally:
@@ -267,6 +235,7 @@ class GoogleFlowAdapter:
             logger.warning(f"Could not change output count: {e}")
         finally:
             await self.dismiss_popups()
+
 
 
     async def upload_reference_image(self, image_path: Path) -> None:
