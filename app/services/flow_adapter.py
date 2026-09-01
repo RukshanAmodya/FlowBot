@@ -176,13 +176,24 @@ class GoogleFlowAdapter:
         except Exception as e:
             logger.info(f"Settings adjustment notice: {e}")
         finally:
-            # Gently focus on the prompt input box at the bottom (without pressing Escape)
+            # Press Escape exactly ONCE if menu is still open to return to normal reference image view
+            try:
+                open_menu = self.page.locator("div[role='menu'], div[data-state='open']").first
+                if await open_menu.is_visible(timeout=300):
+                    logger.info("Closing open menu with single Escape to return to reference image screen...")
+                    await self.page.keyboard.press("Escape")
+                    await self.page.wait_for_timeout(400)
+            except Exception:
+                pass
+
+            # Gently focus on the prompt input box at the bottom
             try:
                 prompt_input = self.page.locator("div[role='textbox'], [contenteditable='true']").last
                 if await prompt_input.is_visible(timeout=500):
                     await prompt_input.click()
             except Exception:
                 pass
+
 
     async def set_aspect_ratio(self, ratio: str = "9:16") -> None:
         """Configures the aspect ratio (e.g., 9:16, 16:9, 1:1, 4:3, 3:4)."""

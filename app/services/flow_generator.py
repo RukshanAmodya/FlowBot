@@ -135,14 +135,10 @@ class FlowGeneratorService:
                     "The persistent browser session is no longer authenticated. Run scripts/login.py again."
                 )
 
-            # Step 1: Open project workspace
+            # Step 1: Open project workspace directly
             await self.adapter.open_project_or_new()
 
-            # Step 2: Select 9:16 Aspect Ratio on canvas first
-            await self.adapter.set_aspect_ratio(aspect_ratio)
-            await self.adapter.set_output_count(count)
-
-            # Step 3: Upload reference image
+            # Step 2: Directly upload the reference image
             if reference_image_base64 or reference_image_url:
                 ref_path = settings.output_path / generation_id / "reference_input.png"
                 ref_path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,9 +156,10 @@ class FlowGeneratorService:
                             ref_path.write_bytes(resp.content)
                             await self.adapter.upload_reference_image(ref_path)
 
-                # Step 4: Inside opened reference image view, switch Model from Pro to Nano Banana 2 & ensure 1 output in 1 single step
-                logger.info("Inside reference image view: Switching Model to Nano Banana 2 (1-step)...")
+                # Step 3: Inside opened reference image view, switch Model from Pro to Nano Banana 2 & 1 image
+                logger.info("Inside reference image view: Switching Model to Nano Banana 2...")
                 await self.adapter.switch_model_and_settings_in_view(model_name="Nano Banana 2", count=count)
+
 
             existing_images = await self.get_existing_image_ids()
             logger.info(f"Found {len(existing_images)} baseline images in workspace.")
