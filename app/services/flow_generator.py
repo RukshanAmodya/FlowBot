@@ -46,9 +46,9 @@ class FlowGeneratorService:
                 continue
         return existing
 
-    async def wait_for_generation_complete(self, initial_images: set, timeout_seconds: int = 300) -> List[Locator]:
-        """Polls for 0% -> 100% progress and detects when all 4 generated images are fully rendered."""
-        logger.info("Generation in progress. Waiting for progress percentage (0% -> 100%) and all 4 outputs to render...")
+    async def wait_for_generation_complete(self, initial_images: set, timeout_seconds: int = 300, expected_count: int = 1) -> List[Locator]:
+        """Polls for 0% -> 100% progress and detects when newly generated images are fully rendered."""
+        logger.info(f"Generation in progress. Waiting for progress percentage (0% -> 100%) and {expected_count} output(s) to render...")
         start_time = asyncio.get_event_loop().time()
 
         # Initial wait for generation to spin up
@@ -84,13 +84,14 @@ class FlowGeneratorService:
                 except Exception:
                     continue
 
-            if len(new_elements) >= 4 and not is_busy:
-                logger.info(f"100% Complete! Detected {len(new_elements)} newly rendered images in workspace.")
+            if len(new_elements) >= expected_count and not is_busy:
+                logger.info(f"100% Complete! Detected {len(new_elements)} newly rendered image(s) in workspace.")
                 # Give 2 seconds for high-res blob/CDN URLs to settle
                 await self.page.wait_for_timeout(2000)
-                return new_elements[:4]
+                return new_elements[:expected_count]
 
             await asyncio.sleep(3)
+
 
         await self.capture_diagnostic_snapshot("timeout")
         raise FlowAutomationException(
@@ -134,13 +135,14 @@ class FlowGeneratorService:
                     "The persistent browser session is no longer authenticated. Run scripts/login.py again."
                 )
 
+            # Step 1: Open project workspace
             await self.adapter.open_project_or_new()
-            await self.adapter.select_nano_banana_2()
+
+            # Step 2: Select 9:16 Aspect Ratio on canvas first
             await self.adapter.set_aspect_ratio(aspect_ratio)
             await self.adapter.set_output_count(count)
 
-
-            # Handle optional reference image
+            # Step 3: Upload reference image
             if reference_image_base64 or reference_image_url:
                 ref_path = settings.output_path / generation_id / "reference_input.png"
                 ref_path.parent.mkdir(parents=True, exist_ok=True)
@@ -158,32 +160,33 @@ class FlowGeneratorService:
                             ref_path.write_bytes(resp.content)
                             await self.adapter.upload_reference_image(ref_path)
 
-                # Re-verify and enforce Nano Banana 2, 9:16 and 1 output inside the opened reference image view!
-                logger.info("Ensuring Model is switched to Nano Banana 2 inside the reference image view...")
+                # Step 4: Inside opened reference image view, switch Model from Pro to Nano Banana 2 & ensure 1 output
+                logger.info("Inside reference image view: Switching Model to Nano Banana 2...")
                 await self.adapter.select_nano_banana_2()
-                await self.adapter.set_aspect_ratio(aspect_ratio)
                 await self.adapter.set_output_count(count)
 
             existing_images = await self.get_existing_image_ids()
             logger.info(f"Found {len(existing_images)} baseline images in workspace.")
 
+            # Step 5: Type prompt and generate exactly 1 image
             await self.adapter.insert_prompt(prompt)
-
             await self.adapter.click_generate()
-
 
             new_image_elements = await self.wait_for_generation_complete(
                 initial_images=existing_images,
-                timeout_seconds=settings.GENERATION_TIMEOUT_SECONDS
+                timeout_seconds=settings.GENERATION_TIMEOUT_SECONDS,
+                expected_count=count
             )
 
-            saved_paths = await self.downloader.download_image_elements(
-                page=self.page,
-                image_locators=new_image_elements,
+            # Download generated outputs
+            downloaded_paths = await self.downloader.download_generated_images(
+                self.page,
+                new_image_elements,
                 generation_id=generation_id
             )
 
-            return saved_paths
+            logger.info(f"Successfully finished flow generation for ID: {generation_id}")
+            return downloaded_paths
 
 
         except FlowAutomationException as fae:
