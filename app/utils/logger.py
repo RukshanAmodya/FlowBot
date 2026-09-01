@@ -13,10 +13,16 @@ def setup_logger(name: str = "flowbot") -> logging.Logger:
             datefmt="%Y-%m-%d %H:%M:%S"
         )
         
-        # Console Handler
+        # Console Handler with safe UTF-8 encoding for Windows terminals
+        if hasattr(sys.stdout, "reconfigure"):
+            try:
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
         c_handler = logging.StreamHandler(sys.stdout)
         c_handler.setFormatter(formatter)
         logger.addHandler(c_handler)
+
         
         # File Handler
         log_file = settings.log_path / "app.log"

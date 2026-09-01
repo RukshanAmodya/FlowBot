@@ -193,32 +193,51 @@ class GoogleFlowAdapter:
 
 
 
-    async def set_aspect_ratio(self, ratio: str = "16:9") -> None:
-        """Configures the aspect ratio (e.g., 16:9, 1:1, 9:16, 4:3, 3:4, 21:9)."""
+    async def set_aspect_ratio(self, ratio: str = "9:16") -> None:
+        """Configures the aspect ratio (e.g., 9:16, 16:9, 1:1, 4:3, 3:4)."""
         logger.info(f"Configuring aspect ratio to {ratio}...")
         try:
-            # Model & settings trigger button (e.g. [🍌 Nano Banana 2  crop_16_9  x4])
+            # Model & settings trigger button (e.g. [🍌 Nano Banana 2  crop_portrait  x1])
             badge_trigger = self.page.locator("button:has-text('Banana'), button:has-text('Nano'), button:has(i:has-text('crop_'))").first
             if await badge_trigger.is_visible(timeout=1500):
                 await badge_trigger.click()
                 await self.page.wait_for_timeout(600)
 
-                # Ratio icons or buttons inside popup
-                ratio_loc = self.page.locator(f"button:has-text('{ratio}'), [aria-label*='{ratio}'], button:has(i:has-text('crop_'))").first
-                if await ratio_loc.is_visible(timeout=1500):
-                    await ratio_loc.click()
-                    logger.info(f"Aspect ratio {ratio} selected.")
-                    await self.page.wait_for_timeout(400)
-                else:
-                    logger.info(f"Ratio {ratio} button not explicitly visible in popup; proceeding with current default.")
+                # Map ratio to exact UI labels (e.g., 9:16 is '9:16' or 'Portrait' or '9 : 16')
+                ratio_candidates = [
+                    f"button:has-text('{ratio}')",
+                    f"[aria-label*='{ratio}']",
+                    f"button:has-text('{ratio.replace(':', ' : ')}')",
+                ]
+                if ratio == "9:16":
+                    ratio_candidates.extend(["button:has-text('9:16')", "button:has-text('Portrait')", "button:has(i:has-text('crop_portrait'))"])
+                elif ratio == "16:9":
+                    ratio_candidates.extend(["button:has-text('16:9')", "button:has-text('Landscape')", "button:has(i:has-text('crop_landscape'))"])
+                elif ratio == "1:1":
+                    ratio_candidates.extend(["button:has-text('1:1')", "button:has-text('Square')", "button:has(i:has-text('crop_square'))"])
+
+                ratio_selected = False
+                for r_sel in ratio_candidates:
+                    ratio_loc = self.page.locator(r_sel).first
+                    if await ratio_loc.is_visible(timeout=800):
+                        await ratio_loc.click()
+                        logger.info(f"Aspect ratio {ratio} selected using selector: {r_sel}")
+                        ratio_selected = True
+                        await self.page.wait_for_timeout(400)
+                        break
+
+                if not ratio_selected:
+                    logger.info(f"Ratio {ratio} button not explicitly matched; proceeding with current default.")
         except Exception as e:
             logger.warning(f"Could not change aspect ratio: {e}")
+        finally:
+            await self.dismiss_popups()
 
-    async def set_output_count(self, count: int = 4) -> None:
+    async def set_output_count(self, count: int = 1) -> None:
         """Configures output image count (1, 2, or 4)."""
         logger.info(f"Ensuring output count is set to {count} (x{count})...")
         try:
-            badge_trigger = self.page.locator("button:has-text('Banana'), button:has-text('Nano')").first
+            badge_trigger = self.page.locator("button:has-text('Banana'), button:has-text('Nano'), button:has(i:has-text('crop_'))").first
             if await badge_trigger.is_visible(timeout=1500):
                 await badge_trigger.click()
                 await self.page.wait_for_timeout(600)
@@ -229,10 +248,12 @@ class GoogleFlowAdapter:
                     logger.info(f"Output count set to {count}.")
                     await self.page.wait_for_timeout(400)
                 else:
-                    # Close popup if open
-                    await self.page.keyboard.press("Escape")
+                    await self.dismiss_popups()
         except Exception as e:
             logger.warning(f"Could not change output count: {e}")
+        finally:
+            await self.dismiss_popups()
+
 
     async def upload_reference_image(self, image_path: Path) -> None:
         """Uploads a reference image to Google Flow according to the exact UI flow."""
@@ -329,18 +350,8 @@ class GoogleFlowAdapter:
             pass
 
     async def insert_prompt(self, prompt: str) -> None:
-        """Inserts the exact user prompt into the active prompt input field."""
-        # If an image edit URL was remembered and we are not on it, navigate to that exact image edit URL!
-        if self.current_edit_url and self.page.url != self.current_edit_url:
-            logger.info(f"Navigating to the remembered reference image edit URL: {self.current_edit_url}...")
-            await self.page.goto(self.current_edit_url, wait_until="domcontentloaded")
-            await self.page.wait_for_timeout(2000)
-
-        # Ensure popups are dismissed so prompt box is fully clickable
-        await self.dismiss_popups()
-        await self.page.wait_for_timeout(400)
-
-        logger.info("Locating active prompt input textbox...")
+        """Inserts the exact user prompt into the active prompt input field (supporting image edit view)."""
+        logger.info(f"Inserting prompt into active view (URL: {self.page.url})...")
         
         # High priority visible prompt editor selectors
         editor_selectors = [
@@ -369,9 +380,9 @@ class GoogleFlowAdapter:
                 continue
 
         if not prompt_box:
-            # Try clicking anywhere on the bottom prompt container
+            # Try clicking on bottom prompt container
             container = self.page.locator("div.sc-5c3af813-0, div.sc-5c3af813-10, div:has-text('Describe'), footer, [data-slate-editor='true']").first
-            if await container.is_visible(timeout=2000):
+            if await container.is_visible(timeout=1500):
                 await container.click()
                 await self.page.wait_for_timeout(300)
                 prompt_box = self.page.locator("div[data-slate-editor='true'], [contenteditable='true']").last
@@ -383,7 +394,7 @@ class GoogleFlowAdapter:
             )
 
         try:
-            await prompt_box.click(timeout=2000)
+            await prompt_box.click(timeout=1500)
         except Exception:
             await prompt_box.click(force=True)
 
@@ -394,13 +405,14 @@ class GoogleFlowAdapter:
 
         await self.page.wait_for_timeout(300)
         
-        # Type the prompt using keyboard simulation for Slate.js compatibility
+        # Type prompt using keyboard simulation
         try:
             await prompt_box.type(f" {prompt}", delay=15)
         except Exception:
             await self.page.keyboard.type(f" {prompt}", delay=15)
 
         logger.info(f"Prompt successfully inserted into prompt textbox: '{prompt}'")
+
         await self.page.wait_for_timeout(600)
 
 
