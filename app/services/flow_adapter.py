@@ -324,36 +324,50 @@ class GoogleFlowAdapter:
             await self.dismiss_popups()
 
             # 4. Click the newly uploaded image at the very first position (top/leftmost item on workspace)
-            logger.info("Clicking the first uploaded image card position to open image view...")
-            first_image_card = self.page.locator(
-                "div.sc-888a6226-1 img, div[data-testid='virtuoso-item-list'] img, main img, div[role='img']"
-            ).first
+            logger.info("Clicking the newly uploaded reference image card to enter image edit view...")
             
-            if await first_image_card.is_visible(timeout=6000):
-                await first_image_card.click()
-                logger.info("Clicked first image card. Verifying and remembering transition to image edit URL (/edit/)...")
-                
-                # Check and remember URL transition to /project/.../edit/...
-                for _ in range(12):
-                    if "/edit/" in self.page.url:
-                        self.current_edit_url = self.page.url
-                        logger.info(f"Remembered image edit URL: {self.current_edit_url}")
+            # Target the uploaded image card directly
+            image_card_selectors = [
+                "div[data-testid='virtuoso-item-list'] div[role='img']",
+                "div[data-testid='virtuoso-item-list'] img",
+                "div.sc-888a6226-1 img",
+                "main div[role='img']",
+                "main img:not([alt*='Avatar'])",
+                "img[src*='media.getMediaUrlRedirect']",
+                "img[src*='blob:']",
+                "div[role='img']"
+            ]
+
+            card_clicked = False
+            for c_sel in image_card_selectors:
+                cards = self.page.locator(c_sel)
+                if await cards.count() > 0:
+                    first_card = cards.first
+                    if await first_card.is_visible(timeout=1000):
+                        logger.info(f"Clicking reference image using selector: {c_sel}")
+                        await first_card.click(force=True)
+                        card_clicked = True
                         break
-                    await self.page.wait_for_timeout(500)
-                
-                await self.page.wait_for_timeout(1500)
-            else:
-                logger.warning("First canvas image card not found; checking if already inside /edit/...")
+
+            if not card_clicked:
+                # Click coordinates of first grid item
+                grid_scroller = self.page.locator("div[data-testid='virtuoso-scroller']").first
+                if await grid_scroller.is_visible(timeout=1000):
+                    await grid_scroller.click(position={"x": 150, "y": 150})
+
+            # Verify transition to image edit view (/edit/ or edit prompt bar)
+            for _ in range(15):
                 if "/edit/" in self.page.url:
                     self.current_edit_url = self.page.url
-                    logger.info(f"Already in image edit view, remembered URL: {self.current_edit_url}")
-                else:
-                    canvas = self.page.locator("div[data-testid='virtuoso-scroller']").first
-                    if await canvas.is_visible(timeout=2000):
-                        await canvas.click(position={"x": 200, "y": 200})
+                    logger.info(f"Successfully entered image edit view: {self.current_edit_url}")
+                    break
+                await self.page.wait_for_timeout(400)
+
+            await self.page.wait_for_timeout(1000)
+
         except Exception as e:
-            logger.warning(f"Reference image upload workflow error: {e}")
-            await self.dismiss_popups()
+            logger.warning(f"Reference image upload workflow notice: {e}")
+
 
     async def dismiss_popups(self) -> None:
         """Closes any open popovers, dropdowns or radix dialog backdrops."""
