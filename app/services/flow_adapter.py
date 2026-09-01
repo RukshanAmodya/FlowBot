@@ -137,36 +137,59 @@ class GoogleFlowAdapter:
             logger.info("Image mode button not found or already default.")
 
     async def switch_model_and_settings_in_view(self, model_name: str = "Nano Banana 2", count: int = 1) -> None:
-        """Single-step configuration inside image view: switches model and count in 1 single popup opening."""
-
-        logger.info(f"Configuring image view settings (Model: {model_name}, Count: x{count})...")
+        """Single-step configuration inside image view: switches model from Pro to Nano Banana 2 and count to 1."""
+        logger.info(f"Configuring image view settings (Switching to Model: {model_name}, Count: x{count})...")
         try:
+            # Locate bottom settings badge (e.g. '🍌 Nano Banana Pro' or '🍌 Nano Banana 2' or 'Banana' or 'Pro')
             badge = self.page.locator("button:has-text('Banana'), button:has-text('Nano'), button:has-text('Pro')").last
-            if await badge.is_visible(timeout=1500):
+            if await badge.is_visible(timeout=2000):
                 badge_text = await badge.inner_text()
-                # If already Nano Banana 2 and x1, do not touch
-                if "Nano Banana 2" in badge_text and "Lite" not in badge_text and f"x{count}" in badge_text:
-                    logger.info("Settings already match Nano Banana 2 and count.")
-                    return
-
-                logger.info(f"Opening settings popup from badge: '{badge_text}'...")
+                logger.info(f"Current badge text: '{badge_text}'. Opening settings popup...")
                 await badge.click()
-                await self.page.wait_for_timeout(600)
+                await self.page.wait_for_timeout(800)
 
-                # 1. Switch Model to Nano Banana 2 (if model selector dropdown exists)
-                model_dropdown = self.page.locator("div[role='dialog'] button:has-text('Banana'), div[role='dialog'] button:has-text('Pro'), div[role='dialog'] [role='combobox']").first
-                if await model_dropdown.is_visible(timeout=800):
-                    await model_dropdown.click()
-                    await self.page.wait_for_timeout(500)
-                    
-                    # Target Nano Banana 2 option
-                    opt_cand = self.page.locator("div[role='menu'] *:has-text('Nano Banana 2'), [role='option']:has-text('Nano Banana 2'), button:has-text('Nano Banana 2')").first
-                    if await opt_cand.is_visible(timeout=1000):
-                        await opt_cand.click()
-                        logger.info("Selected Nano Banana 2.")
-                        await self.page.wait_for_timeout(500)
+                # 1. Look for model selection trigger inside popup (e.g. [🍌 Nano Banana Pro ▾] or [Nano Banana Pro])
+                model_triggers = [
+                    "div[role='dialog'] button:has-text('Pro')",
+                    "div[role='dialog'] button:has-text('Banana')",
+                    "div[data-state='open'] button:has-text('Banana')",
+                    "[role='dialog'] [role='combobox']",
+                    "button:has-text('Pro')"
+                ]
 
-                # 2. Select Count (e.g. x1)
+                model_clicked = False
+                for m_sel in model_triggers:
+                    m_btn = self.page.locator(m_sel).first
+                    if await m_btn.is_visible(timeout=800):
+                        logger.info(f"Clicking model dropdown trigger: {m_sel}")
+                        await m_btn.click()
+                        model_clicked = True
+                        await self.page.wait_for_timeout(600)
+                        break
+
+                # 2. Select EXACTLY 'Nano Banana 2' from the opened dropdown options
+                opt_selectors = [
+                    "div[role='menu'] div:has-text('Nano Banana 2'):not(:has-text('Lite'))",
+                    "[role='option']:has-text('Nano Banana 2')",
+                    "[role='menuitem']:has-text('Nano Banana 2')",
+                    "div[data-radix-popper-content-wrapper] *:has-text('Nano Banana 2')",
+                    "button:has-text('Nano Banana 2')",
+                    "*:has-text('Nano Banana 2')"
+                ]
+
+                opt_selected = False
+                for opt_sel in opt_selectors:
+                    options = self.page.locator(opt_sel)
+                    if await options.count() > 0:
+                        target_opt = options.first
+                        if await target_opt.is_visible(timeout=800):
+                            logger.info(f"Clicking Nano Banana 2 option: {opt_sel}")
+                            await target_opt.click()
+                            opt_selected = True
+                            await self.page.wait_for_timeout(600)
+                            break
+
+                # 3. Select Count (x1)
                 count_btn = self.page.locator(f"button:has-text('x{count}'), button:has-text('{count}')").first
                 if await count_btn.is_visible(timeout=800):
                     await count_btn.click()
@@ -175,6 +198,7 @@ class GoogleFlowAdapter:
 
         except Exception as e:
             logger.info(f"Settings adjustment notice: {e}")
+
         finally:
             # Press Escape exactly ONCE if menu is still open to return to normal reference image view
             try:
