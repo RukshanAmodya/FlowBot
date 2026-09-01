@@ -169,11 +169,13 @@ class GoogleFlowAdapter:
 
             # 2. Select 'Nano Banana 2' from the list of options
             model_option = self.page.locator(
+                "button:has-text('Nano Banana 2'), "
                 "[role='option']:has-text('Nano Banana 2'), "
                 "[role='menuitem']:has-text('Nano Banana 2'), "
-                "div[role='menu'] div:has-text('Nano Banana 2'), "
+                "[role='menuitemradio']:has-text('Nano Banana 2'), "
+                "div[role='menu'] *:has-text('Nano Banana 2'), "
                 "div[data-radix-popper-content-wrapper] *:has-text('Nano Banana 2'), "
-                "div:has-text('Nano Banana 2')"
+                "*:has-text('Nano Banana 2')"
             ).last
 
             if await model_option.is_visible(timeout=3000):
@@ -181,9 +183,17 @@ class GoogleFlowAdapter:
                 logger.info("Successfully switched model to Nano Banana 2.")
                 await self.page.wait_for_timeout(800)
             else:
-                logger.info("Nano Banana 2 menu option not explicitly found in menu; closing popup...")
-                await self.page.keyboard.press("Escape")
-                await self.page.wait_for_timeout(300)
+                # Direct check if visible anywhere
+                any_nb2 = self.page.locator("*:has-text('Nano Banana 2')").first
+                if await any_nb2.is_visible(timeout=1000):
+                    await any_nb2.click()
+                    logger.info("Clicked Nano Banana 2 option.")
+                    await self.page.wait_for_timeout(600)
+                else:
+                    logger.info("Nano Banana 2 menu option not explicitly found in menu; closing popup...")
+                    await self.page.keyboard.press("Escape")
+                    await self.page.wait_for_timeout(300)
+
         except Exception as e:
             logger.info(f"Model selection notice: {e}. Continuing...")
         finally:

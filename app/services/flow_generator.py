@@ -158,10 +158,17 @@ class FlowGeneratorService:
                             ref_path.write_bytes(resp.content)
                             await self.adapter.upload_reference_image(ref_path)
 
+                # Re-verify and enforce Nano Banana 2, 9:16 and 1 output inside the opened reference image view!
+                logger.info("Ensuring Model is switched to Nano Banana 2 inside the reference image view...")
+                await self.adapter.select_nano_banana_2()
+                await self.adapter.set_aspect_ratio(aspect_ratio)
+                await self.adapter.set_output_count(count)
+
             existing_images = await self.get_existing_image_ids()
             logger.info(f"Found {len(existing_images)} baseline images in workspace.")
 
             await self.adapter.insert_prompt(prompt)
+
             await self.adapter.click_generate()
 
 
