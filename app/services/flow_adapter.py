@@ -138,23 +138,21 @@ class GoogleFlowAdapter:
 
     async def select_nano_banana_2(self) -> None:
         """Explicitly selects Nano Banana 2 model in main canvas or opened image view."""
-        logger.info("Attempting to select model: Nano Banana 2...")
+        logger.info("Attempting to select model: Nano Banana 2 (Exact)...")
         try:
             # Check model badge (e.g. '🍌 Nano Banana Pro' or '🍌 Nano Banana 2')
             badge = self.page.locator("button:has-text('Banana'), button:has-text('Nano')").last
             if await badge.is_visible(timeout=1500):
                 badge_text = await badge.inner_text()
-                if "Nano Banana 2" in badge_text:
-                    logger.info("Nano Banana 2 is already selected on the badge.")
+                if "Nano Banana 2" in badge_text and "Lite" not in badge_text:
+                    logger.info("Nano Banana 2 is already active.")
                     return
                 
-                # If badge is visible (e.g. Nano Banana Pro), click it to open settings popup
                 logger.info(f"Current badge: '{badge_text}'. Clicking to switch to Nano Banana 2...")
                 await badge.click()
                 await self.page.wait_for_timeout(800)
 
-            # 1. Inside the settings popup, locate the model selector row/button
-            # As shown in user screenshot: [🍌 Nano Banana Pro  ▾]
+            # 1. Inside the settings popup, locate the model selector dropdown
             model_selector = self.page.locator(
                 "div[role='dialog'] button:has-text('Banana'), "
                 "div[data-state='open'] button:has-text('Banana'), "
@@ -163,41 +161,52 @@ class GoogleFlowAdapter:
             ).first
 
             if await model_selector.is_visible(timeout=2000):
-                logger.info("Found model dropdown in popup. Clicking to open options...")
+                logger.info("Found model dropdown in popup. Opening options...")
                 await model_selector.click()
                 await self.page.wait_for_timeout(800)
 
-            # 2. Select 'Nano Banana 2' from the list of options
-            model_option = self.page.locator(
-                "button:has-text('Nano Banana 2'), "
-                "[role='option']:has-text('Nano Banana 2'), "
-                "[role='menuitem']:has-text('Nano Banana 2'), "
-                "[role='menuitemradio']:has-text('Nano Banana 2'), "
-                "div[role='menu'] *:has-text('Nano Banana 2'), "
-                "div[data-radix-popper-content-wrapper] *:has-text('Nano Banana 2'), "
-                "*:has-text('Nano Banana 2')"
-            ).last
+            # 2. Select EXACTLY 'Nano Banana 2' (strictly avoiding 'Nano Banana Lite' or 'Pro')
+            # Look for options having text 'Nano Banana 2' without 'Lite'
+            model_options = await self.page.locator(
+                "[role='option'], [role='menuitem'], [role='menuitemradio'], button, div[role='menu'] > div, div[data-radix-popper-content-wrapper] button"
+            ).all()
 
-            if await model_option.is_visible(timeout=3000):
-                await model_option.click()
-                logger.info("Successfully switched model to Nano Banana 2.")
-                await self.page.wait_for_timeout(800)
-            else:
-                # Direct check if visible anywhere
-                any_nb2 = self.page.locator("*:has-text('Nano Banana 2')").first
-                if await any_nb2.is_visible(timeout=1000):
-                    await any_nb2.click()
-                    logger.info("Clicked Nano Banana 2 option.")
+            selected = False
+            for opt in model_options:
+                try:
+                    txt = await opt.inner_text()
+                    # Must contain 'Nano Banana 2' or 'Banana 2' and NOT 'Lite' or 'Pro'
+                    if ("Nano Banana 2" in txt or "Banana 2" in txt) and "Lite" not in txt and "Pro" not in txt:
+                        logger.info(f"Found exact Nano Banana 2 option: '{txt}'. Clicking...")
+                        await opt.click()
+                        selected = True
+                        await self.page.wait_for_timeout(800)
+                        break
+                except Exception:
+                    continue
+
+            if not selected:
+                # Fallback to direct locator with exact text
+                exact_loc = self.page.locator("text=/^.*Nano Banana 2.*$/").first
+                if await exact_loc.is_visible(timeout=1500):
+                    await exact_loc.click()
+                    logger.info("Clicked Nano Banana 2 via regex locator.")
                     await self.page.wait_for_timeout(600)
-                else:
-                    logger.info("Nano Banana 2 menu option not explicitly found in menu; closing popup...")
-                    await self.page.keyboard.press("Escape")
-                    await self.page.wait_for_timeout(300)
 
         except Exception as e:
             logger.info(f"Model selection notice: {e}. Continuing...")
         finally:
-            await self.dismiss_popups()
+            # Safely close popup without closing the reference image edit view
+            try:
+                # Click outside or press Escape once gently
+                backdrop = self.page.locator("div[data-state='open'][aria-hidden='true']").first
+                if await backdrop.is_visible(timeout=300):
+                    await backdrop.click(position={"x": 10, "y": 10})
+                else:
+                    await self.page.keyboard.press("Escape")
+            except Exception:
+                pass
+
 
 
 
