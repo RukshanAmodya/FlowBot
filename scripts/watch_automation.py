@@ -14,13 +14,14 @@ from app.services.image_downloader import ImageDownloader
 
 
 
-async def main(prompt: str = None, ref_img_path: str = None, aspect_ratio: str = "9:16", count: int = 4):
+async def main(prompt: str = None, ref_img_path: str = None, aspect_ratio: str = "9:16", count: int = 1):
     print("=" * 65)
     print("GOOGLE FLOW - LIVE AUTOMATION INSPECTION")
     print("=" * 65)
 
     if not prompt:
         prompt = "Create a stunning, highly detailed portrait matching the style and character, 8k resolution, cinematic lighting"
+
     
     if not ref_img_path:
         default_downloads_img = Path(r"C:\Users\Rukshan Amodya\Downloads\38e1213cbf7935579e3234b266c13c42.jpg")
